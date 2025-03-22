@@ -11,3 +11,18 @@ export interface TimeCardProps {
   handleTimeChange: (date: Date) => void;
   is24Hour: boolean
 }
+
+export interface TimeZoneTimelineProps {
+  timeZone: string;
+  currentDate: Date;
+  onTimeChange: (newDate: Date) => void;
+  offset: string;
+  is24Hour: boolean;
+}
+
+export interface MainPageProps {
+    params: {
+      slug: string;
+    };
+  }
+  
