@@ -1,13 +1,21 @@
-'use client'
+"use client";
 
-import React, { useState } from 'react';
-import { Share, Clock, Calendar, Link as LinkIcon, Plus, X, Grid, List, GripVertical } from 'lucide-react';
-import DatePicker from 'react-datepicker';
+import React, { useState } from "react";
+import {
+  Share,
+  Clock,
+  Calendar,
+  Link as LinkIcon,
+  Plus,
+  Grid,
+  List,
+} from "lucide-react";
+import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
-import { TimeZoneTimeline } from '@/components/TimeZoneTimeline';
-import { format } from 'date-fns';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { format } from "date-fns";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import TimeCard from "@/components/card";
 
 interface TimeZone {
   id: number;
@@ -17,16 +25,16 @@ interface TimeZone {
 }
 
 const INITIAL_TIMEZONES: TimeZone[] = [
-  { id: 1, name: 'IST', fullName: 'India Standard Time', offset: '+05:30' },
-  { id: 2, name: 'EST', fullName: 'Eastern Standard Time', offset: '-05:00' },
+  { id: 1, name: "IST", fullName: "India Standard Time", offset: "+05:30" },
+  { id: 2, name: "EST", fullName: "Eastern Standard Time", offset: "-05:00" },
 ];
 
 function App() {
-  const [currentDate, setCurrentDate] = useState(new Date());
+  const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [timeZones, setTimeZones] = useState(INITIAL_TIMEZONES);
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [is24Hour, setIs24Hour] = useState(false);
+  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+  const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
+  const [is24Hour, setIs24Hour] = useState<boolean>(false);
   // const [draggedZone, setDraggedZone] = useState<number | null>(null);
 
   const handleTimeChange = (newDate: Date) => {
@@ -34,7 +42,7 @@ function App() {
   };
 
   const removeTimeZone = (id: number) => {
-    setTimeZones(timeZones.filter(tz => tz.id !== id));
+    setTimeZones(timeZones.filter((tz) => tz.id !== id));
   };
 
   const resetToNow = () => {
@@ -74,8 +82,12 @@ function App() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Time Zone Converter</h1>
-          <p className="text-lg text-gray-600">Compare multiple time zones and plan global meetings with ease</p>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+            Time Zone Converter
+          </h1>
+          <p className="text-lg text-gray-600">
+            Compare multiple time zones and plan global meetings with ease
+          </p>
         </div>
 
         {/* Controls */}
@@ -89,7 +101,10 @@ function App() {
                   placeholder="Add Time Zone, City or Town"
                   className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <Plus className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+                <Plus
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                  size={20}
+                />
               </div>
             </div>
 
@@ -98,11 +113,11 @@ function App() {
               <div className="relative">
                 <Button
                   onClick={() => setShowDatePicker(!showDatePicker)}
-                  variant={'outline'}
+                  variant={"outline"}
                   // className="px-4 py-2 border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50"
                 >
                   <Calendar size={20} />
-                  {format(currentDate, 'dd/MM/yyyy')}
+                  {format(currentDate, "dd/MM/yyyy")}
                 </Button>
                 {showDatePicker && (
                   <div className="absolute top-full mt-2 z-10">
@@ -122,39 +137,41 @@ function App() {
 
               <Button
                 onClick={resetToNow}
-                variant={'outline'}
+                variant={"outline"}
                 // className="px-4 py-2 border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50"
               >
                 <Clock size={20} />
                 Now
               </Button>
 
-              <Button 
-               variant={'outline'}
-               className='hidden md:flex'
-              // className="px-4 py-2 border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50"
+              <Button
+                variant={"outline"}
+                className="hidden md:flex"
+                // className="px-4 py-2 border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50"
               >
                 <LinkIcon size={20} />
                 Save Link
               </Button>
 
-              <Button 
-               variant={'outline'}
-                className='hidden md:flex'
-              // className="px-4 py-2 border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50"
+              <Button
+                variant={"outline"}
+                className="hidden md:flex"
+                // className="px-4 py-2 border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50"
               >
                 <Share size={20} />
                 Share
               </Button>
 
               <Button
-                variant={'outline'}
+                variant={"outline"}
                 onClick={() => setIs24Hour(!is24Hour)}
                 className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
-                  is24Hour ? 'bg-primary text-white hover:bg-primary hover:text-white' : 'bg-white border border-gray-300'
+                  is24Hour
+                    ? "bg-primary text-white hover:bg-primary hover:text-white"
+                    : "bg-white border border-gray-300"
                 }`}
               >
-                {is24Hour ? '24h' : '12h'}
+                {is24Hour ? "24h" : "12h"}
               </Button>
             </div>
           </div>
@@ -164,20 +181,24 @@ function App() {
         <div className="flex justify-end items-center mb-6">
           <div className="flex gap-2">
             <Button
-              variant={'outline'}
-              onClick={() => setViewMode('list')}
+              variant={"outline"}
+              onClick={() => setViewMode("list")}
               className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
-                viewMode === 'list' ? 'bg-gray-900 text-white hover:bg-primary hover:text-white' : 'bg-white text-gray-700 hover:text-black hover:bg-gray-100'
+                viewMode === "list"
+                  ? "bg-gray-900 text-white hover:bg-primary hover:text-white"
+                  : "bg-white text-gray-700 hover:text-black hover:bg-gray-100"
               }`}
             >
               <List size={20} />
               List View
             </Button>
             <Button
-              variant={'outline'}
-              onClick={() => setViewMode('grid')}
+              variant={"outline"}
+              onClick={() => setViewMode("grid")}
               className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
-                viewMode === 'grid' ? 'bg-gray-900 text-white hover:bg-primary hover:text-white' : 'bg-white text-gray-700 hover:text-black hover:bg-gray-100'
+                viewMode === "grid"
+                  ? "bg-gray-900 text-white hover:bg-primary hover:text-white"
+                  : "bg-white text-gray-700 hover:text-black hover:bg-gray-100"
               }`}
             >
               <Grid size={20} />
@@ -199,44 +220,22 @@ function App() {
         </div>
 
         {/* Time Zones */}
-        <div className={`${viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4' : 'md:w-3xl space-y-4 m-auto'}`}>
+        <div
+          className={`${
+            viewMode === "grid"
+              ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+              : "md:w-3xl space-y-4 m-auto"
+          }`}
+        >
           {timeZones.map((tz) => (
-            <div
+            <TimeCard
+              currentDate={currentDate}
+              handleTimeChange={handleTimeChange}
+              is24Hour={is24Hour}
+              removeTimeZone={removeTimeZone}
+              tz={tz}
               key={tz.id}
-              
-              className={`timezone-card bg-white rounded-xl shadow-sm p-6 transition-all relative ${
-                // draggedZone === tz.id ? 'opacity-50 scale-105' : '' 
-                ""
-              } hover:shadow-md`}
-            >
-              <div className="flex items-center justify-between mb-4">
-                <div className="flex items-center gap-4">
-                  <div className="p-2 hover:bg-gray-100 rounded-lg transition-colors cursor-move" 
-                      // onDragStart={(e) => handleDragStart(e, tz.id)}
-                      // onDragOver={(e) => handleDragOver(e, tz.id)}
-                      // onDragEnd={handleDragEnd}
-                      // draggable
-                  >
-                    <GripVertical size={20} className="text-gray-400" />
-                  </div>
-                  <div>
-                    <h2 className="text-2xl font-bold">{tz.name} <span className='text-sm font-light'>({tz.fullName})</span></h2>
-                    <p className="text-gray-500">GMT{tz.offset}</p>
-                  </div>
-                  <span className="text-lg text-gray-600"></span>
-                </div>
-                <Button variant={'ghost'} onClick={() => removeTimeZone(tz.id)} className="absolute top-2 right-2 text-gray-400 hover:text-gray-600">
-                  <X size={20} />
-                </Button>
-              </div>
-                <TimeZoneTimeline
-                  timeZone={tz.name}
-                  currentDate={currentDate}
-                  onTimeChange={handleTimeChange}
-                  offset={tz.offset}
-                  is24Hour={is24Hour}
-                />
-            </div>
+            />
           ))}
         </div>
       </div>

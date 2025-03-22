@@ -182,9 +182,10 @@ export const TimeZoneTimeline: React.FC<TimeZoneTimelineProps> = ({
 
   return (
     <div className="w-full">
-      <div className="text-center mb-4 ">
-        <div className='h-18 box-border '>
-        {isEditing ? (
+      <div className="text-center mb-4">
+        <div className='h-10 box-border'>
+       <div className=''>
+          {isEditing ? (
           <input
             type="text"
             value={editableTime}
@@ -194,11 +195,12 @@ export const TimeZoneTimeline: React.FC<TimeZoneTimelineProps> = ({
             className="text-4xl font-bold text-center w-40 border-b-2 border-primary focus:outline-none"
             autoFocus
           />
-        ) : (
-          <span className="text-4xl font-bold cursor-pointer" onClick={handleTimeEdit}>
-            {format(tzDate, is24Hour ? 'HH:mm' : 'h:mm a')}
-          </span>
-        )}
+          ) : (
+            <span className="text-4xl font-bold cursor-pointer" onClick={handleTimeEdit}>
+              {format(tzDate, is24Hour ? 'HH:mm' : 'h:mm a')}
+            </span>
+          )}
+        </div>
         </div>
         <div className="text-gray-500 mt-1">
           {format(tzDate, 'EEE, MMM d')}
