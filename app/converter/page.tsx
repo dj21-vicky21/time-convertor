@@ -225,9 +225,9 @@ function App() {
                   </div>
                   <span className="text-lg text-gray-600"></span>
                 </div>
-                <button onClick={() => removeTimeZone(tz.id)} className="absolute top-2 right-2 text-gray-400 hover:text-gray-600">
+                <Button variant={'ghost'} onClick={() => removeTimeZone(tz.id)} className="absolute top-2 right-2 text-gray-400 hover:text-gray-600">
                   <X size={20} />
-                </button>
+                </Button>
               </div>
                 <TimeZoneTimeline
                   timeZone={tz.name}

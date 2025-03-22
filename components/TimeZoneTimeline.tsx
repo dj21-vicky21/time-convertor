@@ -104,7 +104,7 @@ export const TimeZoneTimeline: React.FC<TimeZoneTimelineProps> = ({
         >
 
           <div className='h-full flex items-center'>
-            {i != 0  && <span className={cn("rounded-lg relative border-l border-gray-600", i%3 == 0 ? "h-full border-black" : "h-1/6")}  style={{left:"-1.5px"}}/>}
+            {i != 0  && <span className={cn("rounded-lg relative border-l border-gray-600", i%3 == 0 ? "h-2/6 border-black" : "h-1/6")}  style={{left:"-1.5px"}}/>}
           </div>
         </div>
       );
@@ -216,7 +216,7 @@ export const TimeZoneTimeline: React.FC<TimeZoneTimelineProps> = ({
         <div className="absolute inset-0 flex"
         style={{
           // background: "rgb(0,0,0)",
-          background: "linear-gradient(90deg, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 10%, rgba(255,255,255,1) 30%, rgba(255,255,255,1) 50%, rgba(255,255,255,1) 70%, rgba(0,0,0,1) 90%, rgba(0,0,0,1) 100%)",
+          background: "linear-gradient(90deg, rgba(0,0,0,1) 0%, rgba(0,0,0,1) 10%, rgba(148,218,253,1) 30%, rgba(148,218,253,1) 50%, rgba(148,218,253,1) 70%, rgba(0,0,0,1) 90%, rgba(0,0,0,1) 100%)",
         }}
         >
           {getTimelineSegments()}
@@ -224,7 +224,7 @@ export const TimeZoneTimeline: React.FC<TimeZoneTimelineProps> = ({
         
         {/* Current time indicator with centered grip handle */}
         <div
-          className="absolute top-0 bottom-0 flex items-center justify-center w-0.5 bg-primary z-10 transition-all duration-200 cursor-move"
+          className="absolute top-0 bottom-0 flex items-center justify-center w-0.5 bg-primary z-10 transition-all duration-200 cursor-move "
           style={{
             left: `${getCurrentTimePosition()}%`,
             transition: isDragging ? 'none' : 'left 0.2s ease-out',
