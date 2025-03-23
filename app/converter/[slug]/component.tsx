@@ -7,11 +7,7 @@ import { useAppStore } from "@/store/appStore";
 
 const INITIAL_TIMEZONES: TimeZone[] = [
   { id: 1, name: "IST", fullName: "India Standard Time", offset: "+05:30" },
-  { id: 2, name: "EST", fullName: "Eastern Standard Time", offset: "-4:00" },
-  { id: 3, name: "EST", fullName: "Eastern Standard Time", offset: "-4:00" },
-  { id: 4, name: "EST", fullName: "Eastern Standard Time", offset: "-4:00" },
-  { id: 5, name: "EST", fullName: "Eastern Standard Time", offset: "-4:00" },
-  { id: 6, name: "EST", fullName: "Eastern Standard Time", offset: "-4:00" },
+  { id: 2, name: "EST", fullName: "Eastern Standard Time", offset: "-4:00" }
 ];
 
 function TimeZoneApp({ slug }: { slug: string }) {
