@@ -243,3 +243,20 @@ export const TimeZoneTimeline: React.FC<TimeZoneTimelineProps> = ({
     </div>
   );
 };
+
+
+
+
+###############
+
+
+function separateTimeZones(timeZoneString) {
+  // Split the string by '-'
+  return timeZoneString.split('-').filter(zone => zone.length === 3).map(zone => zone.toUpperCase());
+}
+
+// Example usage:
+const timeZoneString = 'ist-to-sgt-est-gmt';
+const separatedTimeZones = separateTimeZones(timeZoneString);
+
+console.log(separatedTimeZones); // Output: ['IST', 'SGT', 'GMT']

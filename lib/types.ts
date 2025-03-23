@@ -9,7 +9,7 @@ export interface TimeCardProps {
   tz: TimeZone;
   currentDate: Date;
   handleTimeChange: (date: Date) => void;
-  is24Hour: boolean
+  is24Hour: boolean;
 }
 
 export interface TimeZoneTimelineProps {
@@ -18,14 +18,22 @@ export interface TimeZoneTimelineProps {
   onTimeChange: (newDate: Date) => void;
   offset: string;
   is24Hour: boolean;
-  getOffsetMinutes: (offset:string) => number;
-  getLocalOffsetMinutes:()=> number;
-  convertToLocalTime: (tzDate:Date, offset:string) => Date
+  getOffsetMinutes: (offset: string) => number;
+  getLocalOffsetMinutes: () => number;
+  convertToLocalTime: (tzDate: Date, offset: string) => Date;
 }
 
 export interface MainPageProps {
-    params: {
-      slug: string;
-    };
-  }
-  
+  params: {
+    slug: string;
+  };
+}
+
+export interface AppStore {
+  currentDate: Date;
+  setCurrentDate: (date: Date) => void;
+  is24Hour: boolean;
+  setIs24Hour: (is24Hour: boolean) => void;
+  slug: string;
+  setSlug: (slug: string) => void;
+}
