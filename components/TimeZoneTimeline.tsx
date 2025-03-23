@@ -128,7 +128,7 @@ export const TimeZoneTimeline: React.FC<TimeZoneTimelineProps> = ({
   };
 
   return (
-    <div className="w-full py-5">
+    <div className="w-full pb-5 md:py-5">
       <div
         ref={timelineRef}
         className="relative h-4  cursor-pointer group"

@@ -1,6 +1,6 @@
 "use client";
 
-import { GripVertical, X } from "lucide-react";
+import { X } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
 import { Button } from "./ui/button";
 import { TimeZoneTimeline } from "./TimeZoneTimeline";
@@ -125,7 +125,7 @@ function TimeCard({
       <div className="mb-4">
         <div className="flex items-center justify-between pr-10 flex-wrap">
           <div className="flex items-center gap-4">
-            <div
+            {/* <div
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors cursor-move"
               // onDragStart={(e) => handleDragStart(e, tz.id)}
               // onDragOver={(e) => handleDragOver(e, tz.id)}
@@ -133,17 +133,17 @@ function TimeCard({
               // draggable
             >
               <GripVertical size={20} className="text-gray-400" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold">
+            </div> */}
+            <div className="">
+              <h2 className="text-3xl font-bold min-w-[200px]">
                 {tz.name}{" "}
-                <span className="text-sm font-light">({tz.fullName})</span>
+                <span className="text-xs font-light">({tz.fullName})</span>
               </h2>
               <p className="text-gray-500">GMT{tz.offset}</p>
             </div>
             <span className="text-lg text-gray-600"></span>
           </div>
-          <div className="text-center ml-auto">
+          <div className="text-center ml-auto w-[140px]">
             <div className="h-10 box-border">
               <div className="">
                 {isEditing ? (
@@ -154,7 +154,7 @@ function TimeCard({
                     onChange={handleChange}
                     onBlur={handleTimeSubmit}
                     onKeyPress={(e) => e.key === "Enter" && handleTimeSubmit()}
-                    className="text-3xl font-bold text-center w-40 border-b-2 border-primary focus:outline-none"
+                    className="text-3xl font-bold text-center w-36 border-b-2 border-primary focus:outline-none"
                     autoFocus
                   />
                 ) : (
