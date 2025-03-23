@@ -1,42 +1,22 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
-import { format, parse, addMinutes } from "date-fns";
+import React, { useRef, useState } from "react";
+import { addMinutes } from "date-fns";
 import { GripHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { TimeZoneTimelineProps } from "@/lib/types";
 
 export const TimeZoneTimeline: React.FC<TimeZoneTimelineProps> = ({
-  timeZone,
   currentDate,
   onTimeChange,
   offset,
   is24Hour,
+  getOffsetMinutes,
+  getLocalOffsetMinutes,
+  convertToLocalTime,
 }) => {
   const timelineRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editableTime, setEditableTime] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  const getOffsetMinutes = (offsetStr: string): number => {
-    const match = offsetStr.match(/([+-])(\d{2}):(\d{2})/);
-    if (!match) return 0;
-    const [_, sign, hours, minutes] = match;
-    const totalMinutes = parseInt(hours) * 60 + parseInt(minutes);
-    return sign === "+" ? totalMinutes : -totalMinutes;
-  };
-
-  const getLocalOffsetMinutes = (): number => {
-    return -currentDate.getTimezoneOffset();
-  };
-
-  const convertToLocalTime = (date: Date, fromOffset: string): Date => {
-    const sourceOffset = getOffsetMinutes(fromOffset);
-    const localOffset = getLocalOffsetMinutes();
-    const diffMinutes = localOffset - sourceOffset;
-    return addMinutes(date, diffMinutes);
-  };
 
   const convertToTargetTime = (date: Date, toOffset: string): Date => {
     const targetOffset = getOffsetMinutes(toOffset);
@@ -78,7 +58,8 @@ export const TimeZoneTimeline: React.FC<TimeZoneTimelineProps> = ({
 
     const tzDate = convertToTargetTime(currentDate, offset);
     tzDate.setHours(hours, minutes, 0, 0);
-    return convertToLocalTime(tzDate, offset);
+    const date = convertToLocalTime(tzDate, offset);
+    return date;
   };
 
   const updateTimeFromPosition = (xPosition: number) => {
@@ -146,104 +127,8 @@ export const TimeZoneTimeline: React.FC<TimeZoneTimelineProps> = ({
     });
   };
 
-  const handleTimeEdit = () => {
-    const tzDate = convertToTargetTime(currentDate, offset);
-    const time = format(tzDate, is24Hour ? "HH:mm" : "h:mm a");
-    setEditableTime(time);
-    setIsEditing(true);
-  };
-
-  const handleTimeSubmit = () => {
-    try {
-      let newDate: Date;
-
-      if (is24Hour) {
-        const [hours, minutes] = editableTime.split(":").map(Number);
-        if (isNaN(hours) || isNaN(minutes))
-          throw new Error("Invalid time format");
-
-        const tzDate = convertToTargetTime(currentDate, offset);
-        tzDate.setHours(hours, minutes, 0, 0);
-        newDate = convertToLocalTime(tzDate, offset);
-      } else {
-        // Parse 12-hour format
-        const parsedDate = parse(editableTime, "hh:mm a", new Date());
-        if (isNaN(parsedDate.getTime())) throw new Error("Invalid time format");
-
-        const tzDate = convertToTargetTime(currentDate, offset);
-        tzDate.setHours(parsedDate.getHours(), parsedDate.getMinutes(), 0, 0);
-        newDate = convertToLocalTime(tzDate, offset);
-      }
-
-      onTimeChange(newDate);
-      setIsEditing(false);
-    } catch (error) {
-      console.log("--> ~ handleTimeSubmit ~ error:", error);
-      setIsEditing(false);
-    }
-  };
-
-  const tzDate = convertToTargetTime(currentDate, offset);
-
-
-  useEffect(() => {
-    // Function to handle clicks outside the input
-    const handleClickOutside = (event: MouseEvent) => {
-      if (inputRef.current && !inputRef.current.contains(event.target as Node)) {
-        // Blur the input if the click is outside
-        inputRef.current.blur();
-      }
-    };
-
-    // Add event listener for mousedown
-    document.addEventListener('mousedown', handleClickOutside);
-
-    // Cleanup the event listener on unmount
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (isEditing && inputRef.current) {
-      inputRef.current.focus(); // Focus the input
-      inputRef.current.select(); // Select the text
-    }
-  }, [isEditing]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setEditableTime(e.target.value);
-  };
-
   return (
-    <div className="w-full">
-      <div className="text-center mb-4">
-        <div className="h-10 box-border">
-          <div className="">
-            {isEditing ? (
-              <input
-                ref={inputRef}
-                type="text"
-                value={editableTime}
-                onChange={handleChange}
-                onBlur={handleTimeSubmit}
-                onKeyPress={(e) => e.key === "Enter" && handleTimeSubmit()}
-                className="text-4xl font-bold text-center w-40 border-b-2 border-primary focus:outline-none"
-                autoFocus
-              />
-            ) : (
-              <span
-                className="text-4xl font-bold cursor-pointer"
-                onClick={handleTimeEdit}
-              >
-                {format(tzDate, is24Hour ? "HH:mm" : "h:mm a")}
-              </span>
-            )}
-          </div>
-        </div>
-        <div className="text-gray-500 mt-1">{format(tzDate, "EEE, MMM d")}</div>
-      </div>
-
+    <div className="w-full py-5">
       <div
         ref={timelineRef}
         className="relative h-4  cursor-pointer group"
@@ -276,7 +161,7 @@ export const TimeZoneTimeline: React.FC<TimeZoneTimelineProps> = ({
           </div>
         </div>
 
-        <div className="absolute -bottom-5 w-full h-6 cursor-pointer">
+        <div className="absolute -bottom-5 w-full h-6 cursor-pointer pointer-events-none">
           {getHourLabels()}
         </div>
       </div>

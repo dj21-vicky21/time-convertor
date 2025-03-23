@@ -18,6 +18,9 @@ export interface TimeZoneTimelineProps {
   onTimeChange: (newDate: Date) => void;
   offset: string;
   is24Hour: boolean;
+  getOffsetMinutes: (offset:string) => number;
+  getLocalOffsetMinutes:()=> number;
+  convertToLocalTime: (tzDate:Date, offset:string) => Date
 }
 
 export interface MainPageProps {
