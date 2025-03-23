@@ -172,7 +172,7 @@ function App({ children }: { children: React.ReactNode }) {
         {/* View Toggle and Add Button */}
         <div className="hidden md:flex justify-end items-center mb-6">
           <div className="flex gap-2">
-            { slug && 
+            {slug && (
               <>
                 <Button
                   variant={"outline"}
@@ -199,7 +199,7 @@ function App({ children }: { children: React.ReactNode }) {
                   Grid View
                 </Button>
               </>
-            }
+            )}
           </div>
 
           {/* <Button

@@ -7,18 +7,17 @@ import { useAppStore } from "@/store/appStore";
 
 const INITIAL_TIMEZONES: TimeZone[] = [
   { id: 1, name: "IST", fullName: "India Standard Time", offset: "+05:30" },
-  { id: 2, name: "EST", fullName: "Eastern Standard Time", offset: "-4:00" }
+  { id: 2, name: "EST", fullName: "Eastern Standard Time", offset: "-4:00" },
 ];
 
 function TimeZoneApp({ slug }: { slug: string }) {
-   
   const { currentDate, setCurrentDate, is24Hour, setSlug } = useAppStore();
   const [timeZones, setTimeZones] = useState<TimeZone[]>(INITIAL_TIMEZONES);
-  const [isClient, setIsClient] = useState(false)
- 
+  const [isClient, setIsClient] = useState(false);
+
   useEffect(() => {
-    setIsClient(true)
-  }, [])
+    setIsClient(true);
+  }, []);
 
   const handleTimeChange = (newDate: Date) => {
     setCurrentDate(new Date(newDate));
@@ -35,16 +34,17 @@ function TimeZoneApp({ slug }: { slug: string }) {
 
   return (
     <>
-      {isClient && timeZones.map((tz) => (
-        <TimeCard
-          currentDate={currentDate}
-          handleTimeChange={handleTimeChange}
-          is24Hour={is24Hour}
-          removeTimeZone={removeTimeZone}
-          tz={tz}
-          key={tz.id}
-        />
-      ))}
+      {isClient &&
+        timeZones.map((tz) => (
+          <TimeCard
+            currentDate={currentDate}
+            handleTimeChange={handleTimeChange}
+            is24Hour={is24Hour}
+            removeTimeZone={removeTimeZone}
+            tz={tz}
+            key={tz.id}
+          />
+        ))}
     </>
   );
 }
