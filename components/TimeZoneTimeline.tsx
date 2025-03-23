@@ -204,6 +204,17 @@ export const TimeZoneTimeline: React.FC<TimeZoneTimelineProps> = ({
     };
   }, []);
 
+  useEffect(() => {
+    if (isEditing && inputRef.current) {
+      inputRef.current.focus(); // Focus the input
+      inputRef.current.select(); // Select the text
+    }
+  }, [isEditing]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setEditableTime(e.target.value);
+  };
+
   return (
     <div className="w-full">
       <div className="text-center mb-4">
@@ -214,7 +225,7 @@ export const TimeZoneTimeline: React.FC<TimeZoneTimelineProps> = ({
                 ref={inputRef}
                 type="text"
                 value={editableTime}
-                onChange={(e)=>setEditableTime(e.target.value)}
+                onChange={handleChange}
                 onBlur={handleTimeSubmit}
                 onKeyPress={(e) => e.key === "Enter" && handleTimeSubmit()}
                 className="text-4xl font-bold text-center w-40 border-b-2 border-primary focus:outline-none"
