@@ -4,6 +4,7 @@ import { TimeZone } from "@/lib/types";
 import React, { useEffect, useState } from "react";
 import TimeCard from "@/components/card";
 import { useAppStore } from "@/store/appStore";
+import { useRouter } from "next/navigation";
 
 const INITIAL_TIMEZONES: TimeZone[] = [
   { id: 1, name: "IST", fullName: "India Standard Time", offset: "+05:30" },
@@ -11,9 +12,9 @@ const INITIAL_TIMEZONES: TimeZone[] = [
 ];
 
 function TimeZoneApp({ slug }: { slug: string }) {
-  const { currentDate, setCurrentDate, is24Hour, setSlug } = useAppStore();
-  const [timeZones, setTimeZones] = useState<TimeZone[]>(INITIAL_TIMEZONES);
+  const { currentDate, setCurrentDate, is24Hour, setSlug, setTimeZones, timeZones } = useAppStore();
   const [isClient, setIsClient] = useState(false);
+  const router = useRouter()
 
   useEffect(() => {
     setIsClient(true);
@@ -27,9 +28,46 @@ function TimeZoneApp({ slug }: { slug: string }) {
     setTimeZones(timeZones.filter((tz) => tz.id !== id));
   };
 
+  function getValuesFromSlug(slug:string) {
+    const parts = slug.split('-').filter(part => part.length > 0);
+    
+    // Return empty array if no valid parts
+    if (parts.length === 0) return [];
+    
+    // Only return [firstValue] if "to" doesn't appear right after it
+    if (parts.length < 2 || parts[1] !== "to") {
+      return [parts[0]];
+    }
+    
+    // If "to" appears right after first value, return all non-"to" values
+    return parts.filter((part, index) => part !== "to" && (index === 0 || index > 1));
+  }
+
+  function generateSlugStructure(values:string[]) {
+    // Filter out empty values
+    const filtered = values.filter(v => v && v.length > 0);
+    
+    if (filtered.length === 0) return '';
+    if (filtered.length === 1) return filtered[0];
+    
+    // First element + "-to-" + remaining elements joined with "-"
+    return `${filtered[0]}-to-${filtered.slice(1).join('-')}`;
+  }
+
   useEffect(() => {
     if (!slug) return;
     setSlug(slug);
+    const splitSlug = getValuesFromSlug(slug);
+    console.log("--> ~ useEffect ~ splitSlug:", splitSlug)
+
+    if(!splitSlug.length) return
+
+    const formatedSlug = generateSlugStructure(splitSlug)
+
+    console.log("--> ~ useEffect ~ formatedSlug:", formatedSlug)
+
+    router.push(formatedSlug)
+
   }, [slug, setSlug]);
 
   return (

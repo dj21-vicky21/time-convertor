@@ -36,4 +36,6 @@ export interface AppStore {
   setIs24Hour: (is24Hour: boolean) => void;
   slug: string;
   setSlug: (slug: string) => void;
+  timeZones: TimeZone[];
+  setTimeZones: (timeZones: TimeZone[]) => void;
 }

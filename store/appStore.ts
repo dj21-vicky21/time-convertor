@@ -8,4 +8,6 @@ export const useAppStore = create<AppStore>((set) => ({
   setIs24Hour: (is24Hour) => set({ is24Hour }),
   slug: "", // Initial value of the slug
   setSlug: (slug: string) => set({ slug }),
+  timeZones: [], // Default value
+  setTimeZones: (timeZones) => set({ timeZones }),
 }));
