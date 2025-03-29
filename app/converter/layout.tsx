@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import {
-  Share,
   Clock,
   Calendar,
   Link as LinkIcon,
@@ -16,6 +15,7 @@ import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { useAppStore } from "@/store/appStore";
 import CountrySearchInput from "./component/countrySearchInput";
+import { toast } from "sonner";
 
 function App({ children }: { children: React.ReactNode }) {
   const { currentDate, setCurrentDate, is24Hour, setIs24Hour, slug } =
@@ -140,20 +140,40 @@ function App({ children }: { children: React.ReactNode }) {
               <Button
                 variant={"outline"}
                 className="hidden md:flex"
+                onClick={() =>{
+                    navigator.clipboard.writeText(window.location.href);
+                    toast("Link copied to clipboard", {
+                      description: "You can share this link with others",
+                      action: {
+                        label: "Undo",
+                        onClick: () => console.log("Undo"),
+                      },
+                    })
+                  }
+                }
                 // className="px-4 py-2 border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50"
               >
                 <LinkIcon size={20} />
                 Save Link
               </Button>
 
-              <Button
+              {/* <Button
                 variant={"outline"}
                 className="hidden md:flex"
+                onClick={() => {
+                  navigator.clipboard.writeText(window.location.href);
+                  toast({
+                    title: "Link copied to clipboard",
+                    description: "You can share this link with others",
+                    duration: 2000,
+                    type: "success",
+                  });
+                }}
                 // className="px-4 py-2 border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50"
               >
                 <Share size={20} />
                 Share
-              </Button>
+              </Button> */}
 
               <Button
                 variant={"outline"}
