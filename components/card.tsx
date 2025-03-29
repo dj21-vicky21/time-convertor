@@ -174,7 +174,7 @@ function TimeCard({
         </div>
         <Button
           variant={"ghost"}
-          onClick={() => removeTimeZone(tz.name)}
+          onClick={() => removeTimeZone(tz.uuid)}
           className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
         >
           <X size={20} />

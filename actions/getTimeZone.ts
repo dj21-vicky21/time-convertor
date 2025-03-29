@@ -2,6 +2,7 @@
 
 import { TimeZone } from "@/lib/types";
 import { Country } from "country-state-city";
+import { randomUUID } from 'crypto';
 
 const getOffsetString = (gmtOffset: number): string => {
   const hours = Math.floor(gmtOffset / 3600);
@@ -28,10 +29,12 @@ export const getTimezones = async (inputs: string[]): Promise<TimeZone[]> => {
         const key = `${tz.abbreviation.toUpperCase()}_${country.name.toLowerCase()}`;
         if (!timezoneMap.has(key)) {
           timezoneMap.set(key, {
-            id: timezoneMap.size + 1,
+            id: key,
             name: tz.abbreviation.toUpperCase(),
             fullName: tz.tzName,
             offset: getOffsetString(tz.gmtOffset),
+            country: country.name,
+            uuid: ""
           });
         }
       });
@@ -39,7 +42,7 @@ export const getTimezones = async (inputs: string[]): Promise<TimeZone[]> => {
   });
 
   // Process input queries
-  inputs.forEach((input, index) => {
+  inputs.forEach((input) => {
     const [abbrev, country] = input.toLowerCase().split("_");
     const searchKey = country
       ? `${abbrev.toUpperCase()}_${country}`
@@ -54,7 +57,8 @@ export const getTimezones = async (inputs: string[]): Promise<TimeZone[]> => {
       if (tz) {
         results.push({
           ...tz,
-          id: index + 1, // Maintain input order for IDs
+          id: input, // Maintain input order for IDs
+          uuid: randomUUID()
         });
       }
     }

@@ -6,11 +6,6 @@ import { useAppStore } from "@/store/appStore";
 import { useRouter } from "next/navigation";
 import { getTimezones } from "@/actions/getTimeZone";
 
-// const INITIAL_TIMEZONES: TimeZone[] = [
-//   { id: 1, name: "IST", fullName: "India Standard Time", offset: "+05:30" },
-//   { id: 2, name: "EST", fullName: "Eastern Standard Time", offset: "-4:00" },
-// ];
-
 function TimeZoneApp({ slug }: { slug: string }) {
   const {
     currentDate,
@@ -31,8 +26,9 @@ function TimeZoneApp({ slug }: { slug: string }) {
     setCurrentDate(new Date(newDate));
   };
 
-  const removeTimeZone = (name: string) => {
-    setTimeZones(timeZones.filter((tz) => tz.name !== name));
+  const removeTimeZone = (uuid: string) => {
+    const filterZones = timeZones.filter((tz) => tz.uuid !== uuid);
+    setTimeZones(filterZones);
   };
 
   function getValuesFromSlug(slug: string) {
@@ -88,33 +84,33 @@ function TimeZoneApp({ slug }: { slug: string }) {
       console.log("--> ~ useEffect ~ formatedSlug:", formatedSlug);
 
       // Push to the new route
-      router.push(formatedSlug);
+      // router.push(formatedSlug);
     };
 
     fetchData();
   }, [slug, setSlug]);
 
   useEffect(() => {
-    if (!timeZones.length) {
+    if (timeZones.length === 0) {
       router.push("/converter");
       return;
     }
-    const formatedSlug = generateSlugStructure(timeZones.map((tz) => tz.name));
+    const formatedSlug = generateSlugStructure(timeZones.map((tz) => tz.id));
     // Push to the new route
     router.push(formatedSlug);
-  }, [timeZones]);
+  }, [slug, timeZones]);
 
   return (
     <>
       {isClient &&
-        timeZones.map((tz) => (
+        timeZones.map((tz, index) => (
           <TimeCard
             currentDate={currentDate}
             handleTimeChange={handleTimeChange}
             is24Hour={is24Hour}
             removeTimeZone={removeTimeZone}
             tz={tz}
-            key={tz.id}
+            key={tz.id + index}
           />
         ))}
     </>
