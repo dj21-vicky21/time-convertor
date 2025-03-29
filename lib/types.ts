@@ -5,7 +5,7 @@ export interface TimeZone {
   name: string;
 }
 export interface TimeCardProps {
-  removeTimeZone: (id: number) => void;
+  removeTimeZone: (name: string) => void;
   tz: TimeZone;
   currentDate: Date;
   handleTimeChange: (date: Date) => void;

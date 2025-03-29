@@ -12,9 +12,16 @@ import { getTimezones } from "@/actions/getTimeZone";
 // ];
 
 function TimeZoneApp({ slug }: { slug: string }) {
-  const { currentDate, setCurrentDate, is24Hour, setSlug, setTimeZones, timeZones } = useAppStore();
+  const {
+    currentDate,
+    setCurrentDate,
+    is24Hour,
+    setSlug,
+    setTimeZones,
+    timeZones,
+  } = useAppStore();
   const [isClient, setIsClient] = useState(false);
-  const router = useRouter()
+  const router = useRouter();
 
   useEffect(() => {
     setIsClient(true);
@@ -24,53 +31,54 @@ function TimeZoneApp({ slug }: { slug: string }) {
     setCurrentDate(new Date(newDate));
   };
 
-  const removeTimeZone = (id: number) => {
-    setTimeZones(timeZones.filter((tz) => tz.id !== id));
+  const removeTimeZone = (name: string) => {
+    setTimeZones(timeZones.filter((tz) => tz.name !== name));
   };
 
-  function getValuesFromSlug(slug:string) {
-    const parts = slug.split('-').filter(part => part.length > 0);
-    
+  function getValuesFromSlug(slug: string) {
+    const parts = slug.split("-").filter((part) => part.length > 0);
+
     // Return empty array if no valid parts
     if (parts.length === 0) return [];
-    
+
     // Only return [firstValue] if "to" doesn't appear right after it
     if (parts.length < 2 || parts[1] !== "to") {
       return [parts[0]];
     }
-    
+
     // If "to" appears right after first value, return all non-"to" values
-    return parts.filter((part, index) => part !== "to" && (index === 0 || index > 1));
+    return parts.filter(
+      (part, index) => part !== "to" && (index === 0 || index > 1)
+    );
   }
 
-  function generateSlugStructure(values:string[]) {
+  function generateSlugStructure(values: string[]) {
     // Filter out empty values
-    const filtered = values.filter(v => v && v.length > 0);
-    
-    if (filtered.length === 0) return '';
+    const filtered = values.filter((v) => v && v.length > 0);
+
+    if (filtered.length === 0) return "";
     if (filtered.length === 1) return filtered[0];
-    
+
     // First element + "-to-" + remaining elements joined with "-"
-    return `${filtered[0]}-to-${filtered.slice(1).join('-')}`;
+    return `${filtered[0]}-to-${filtered.slice(1).join("-")}`;
   }
 
-  const getURLTimeZones= async(a:string[])=>{
+  const getURLTimeZones = async (a: string[]) => {
     const allCountries = await getTimezones(a);
-    return allCountries
-  }
+    return allCountries;
+  };
 
   useEffect(() => {
     if (!slug) return;
 
     const fetchData = async () => {
-      
       // Set slug if it is not set yet
       setSlug(slug);
-      
+
       // Split slug into the timezone abbreviations or countries
       const splitSlug = getValuesFromSlug(slug);
-      const validTimeZones =  await getURLTimeZones(splitSlug)
-      setTimeZones(validTimeZones)
+      const validTimeZones = await getURLTimeZones(splitSlug);
+      setTimeZones(validTimeZones);
       console.log("--> ~ useEffect ~ splitSlug:", splitSlug);
 
       if (!splitSlug.length) return;
@@ -81,11 +89,20 @@ function TimeZoneApp({ slug }: { slug: string }) {
 
       // Push to the new route
       router.push(formatedSlug);
-    }; 
+    };
 
-    fetchData()
-
+    fetchData();
   }, [slug, setSlug]);
+
+  useEffect(() => {
+    if (!timeZones.length) {
+      router.push("/converter");
+      return;
+    }
+    const formatedSlug = generateSlugStructure(timeZones.map((tz) => tz.name));
+    // Push to the new route
+    router.push(formatedSlug);
+  }, [timeZones]);
 
   return (
     <>
