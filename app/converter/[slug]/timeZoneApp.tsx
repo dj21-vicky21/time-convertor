@@ -95,9 +95,17 @@ function TimeZoneApp({ slug }: { slug: string }) {
       router.push("/converter");
       return;
     }
-    const formatedSlug = generateSlugStructure(timeZones.map((tz) => tz.id));
+    const formattedSlug = generateSlugStructure(timeZones.map((tz) => tz.id));
     // Push to the new route
-    router.push(formatedSlug);
+    // router.push({
+    //   pathname: formattedSlug,
+    //   query: {
+    //     is24Hour: is24Hour,
+    //     viewMode: viewMode
+    //   }
+    // });
+    router.push(formattedSlug)
+
   }, [slug, timeZones]);
 
   return (

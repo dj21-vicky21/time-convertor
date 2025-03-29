@@ -40,4 +40,6 @@ export interface AppStore {
   setSlug: (slug: string) => void;
   timeZones: TimeZone[];
   setTimeZones: (timeZones: TimeZone[]) => void;
+  viewMode: "list" | "grid";
+  setViewMode: (viewMode: "list" | "grid") => void;
 }

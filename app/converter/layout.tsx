@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Clock,
   Calendar,
@@ -14,14 +14,33 @@ import "react-datepicker/dist/react-datepicker.css";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { useAppStore } from "@/store/appStore";
-import CountrySearchInput from "./component/countrySearchInput";
+import CountrySearchInput from "./[slug]/countrySearchInput";
 import { toast } from "sonner";
+import { useSearchParams } from 'next/navigation';
+
 
 function App({ children }: { children: React.ReactNode }) {
-  const { currentDate, setCurrentDate, is24Hour, setIs24Hour, slug } =
+  const { currentDate, setCurrentDate, is24Hour, setIs24Hour, slug ,setViewMode , viewMode} =
     useAppStore();
-  const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+  // const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
+  
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+
+  const Is24HourSearchParams = searchParams.get('is24Hour');
+
+  if(Is24HourSearchParams && Is24HourSearchParams === "true") {
+    setIs24Hour(true);
+  }
+  const viewModeSearchParams = searchParams.get('viewMode');
+
+  if(viewModeSearchParams && viewModeSearchParams === "grid") {
+    setViewMode("grid");
+  } 
+
+  }, []);
 
   // const [draggedZone, setDraggedZone] = useState<number | null>(null);
   // const searchParams = useSearchParams();
@@ -141,7 +160,7 @@ function App({ children }: { children: React.ReactNode }) {
                 variant={"outline"}
                 className="hidden md:flex"
                 onClick={() =>{
-                    navigator.clipboard.writeText(window.location.href);
+                    navigator.clipboard.writeText(window.location.href+`?is24Hour=${is24Hour}&viewMode=${viewMode}`);
                     toast("Link copied to clipboard", {
                       description: "You can share this link with others",
                       action: {

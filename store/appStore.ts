@@ -10,4 +10,6 @@ export const useAppStore = create<AppStore>((set) => ({
   setSlug: (slug: string) => set({ slug }),
   timeZones: [], // Default value
   setTimeZones: (timeZones) => set({ timeZones }),
+  viewMode: "list", // Default value
+  setViewMode: (viewMode) => set({ viewMode }),
 }));
