@@ -20,7 +20,7 @@ import { useSearchParams } from 'next/navigation';
 
 
 function App({ children }: { children: React.ReactNode }) {
-  const { currentDate, setCurrentDate, is24Hour, setIs24Hour, slug ,setViewMode , viewMode} =
+  const { currentDate, setCurrentDate, is24Hour, setIs24Hour, slug ,setViewMode , viewMode ,timeZones} =
     useAppStore();
   // const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
@@ -258,7 +258,7 @@ function App({ children }: { children: React.ReactNode }) {
         {/* Time Zones */}
         <div
           className={`${
-            viewMode === "grid"
+            timeZones.length && viewMode === "grid"
               ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
               : "md:w-3xl space-y-4 m-auto"
           }`}

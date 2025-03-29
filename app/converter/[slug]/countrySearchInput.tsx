@@ -178,7 +178,8 @@ export default function CountrySearchInput() {
     if(!country.timezones) return 
 
     const countryCode = country.timezones[0].abbreviation + "_" + country.name
-    router.push(`/converter/${slug.includes("-to-") ? slug +"-"+ countryCode : slug ? slug + "-to-" + countryCode : countryCode }`);
+    const path = `${slug.includes("-to-") ? slug +"-"+ countryCode : slug ? slug + "-to-" + countryCode : countryCode }`
+    router.push(`/converter/${path}`);
     console.log("Selected country:", country);
   };
 
