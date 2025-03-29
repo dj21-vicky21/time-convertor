@@ -1,15 +1,15 @@
 "use client";
 
-import { TimeZone } from "@/lib/types";
 import React, { useEffect, useState } from "react";
 import TimeCard from "@/components/card";
 import { useAppStore } from "@/store/appStore";
 import { useRouter } from "next/navigation";
+import { getTimezones } from "@/actions/getTimeZone";
 
-const INITIAL_TIMEZONES: TimeZone[] = [
-  { id: 1, name: "IST", fullName: "India Standard Time", offset: "+05:30" },
-  { id: 2, name: "EST", fullName: "Eastern Standard Time", offset: "-4:00" },
-];
+// const INITIAL_TIMEZONES: TimeZone[] = [
+//   { id: 1, name: "IST", fullName: "India Standard Time", offset: "+05:30" },
+//   { id: 2, name: "EST", fullName: "Eastern Standard Time", offset: "-4:00" },
+// ];
 
 function TimeZoneApp({ slug }: { slug: string }) {
   const { currentDate, setCurrentDate, is24Hour, setSlug, setTimeZones, timeZones } = useAppStore();
@@ -54,19 +54,36 @@ function TimeZoneApp({ slug }: { slug: string }) {
     return `${filtered[0]}-to-${filtered.slice(1).join('-')}`;
   }
 
+  const getURLTimeZones= async(a:string[])=>{
+    const allCountries = await getTimezones(a);
+    return allCountries
+  }
+
   useEffect(() => {
     if (!slug) return;
-    setSlug(slug);
-    const splitSlug = getValuesFromSlug(slug);
-    console.log("--> ~ useEffect ~ splitSlug:", splitSlug)
 
-    if(!splitSlug.length) return
+    const fetchData = async () => {
+      
+      // Set slug if it is not set yet
+      setSlug(slug);
+      
+      // Split slug into the timezone abbreviations or countries
+      const splitSlug = getValuesFromSlug(slug);
+      const validTimeZones =  await getURLTimeZones(splitSlug)
+      setTimeZones(validTimeZones)
+      console.log("--> ~ useEffect ~ splitSlug:", splitSlug);
 
-    const formatedSlug = generateSlugStructure(splitSlug)
+      if (!splitSlug.length) return;
 
-    console.log("--> ~ useEffect ~ formatedSlug:", formatedSlug)
+      // Generate the formatted slug structure
+      const formatedSlug = generateSlugStructure(splitSlug);
+      console.log("--> ~ useEffect ~ formatedSlug:", formatedSlug);
 
-    router.push(formatedSlug)
+      // Push to the new route
+      router.push(formatedSlug);
+    }; 
+
+    fetchData()
 
   }, [slug, setSlug]);
 
