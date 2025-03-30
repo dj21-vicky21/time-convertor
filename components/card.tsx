@@ -22,6 +22,7 @@ function TimeCard({
     const match = offsetStr.match(/([+-])(\d{2}):(\d{2})/);
     if (!match) return 0;
     const [_, sign, hours, minutes] = match;
+    console.log("--> ~ getOffsetMinutes ~ _:", _)
     const totalMinutes = parseInt(hours) * 60 + parseInt(minutes);
     return sign === "+" ? totalMinutes : -totalMinutes;
   };

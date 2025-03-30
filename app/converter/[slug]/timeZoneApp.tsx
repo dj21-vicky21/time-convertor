@@ -88,6 +88,7 @@ function TimeZoneApp({ slug }: { slug: string }) {
     };
 
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, setSlug]);
 
   useEffect(() => {
@@ -105,7 +106,8 @@ function TimeZoneApp({ slug }: { slug: string }) {
     //   }
     // });
     router.push(formattedSlug)
-
+    
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, timeZones]);
 
   return (

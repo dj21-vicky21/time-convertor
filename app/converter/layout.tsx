@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { Suspense, useEffect, useState } from "react";
 import {
   Clock,
   Calendar,
@@ -16,30 +16,37 @@ import { Button } from "@/components/ui/button";
 import { useAppStore } from "@/store/appStore";
 import CountrySearchInput from "./[slug]/countrySearchInput";
 import { toast } from "sonner";
-import { useSearchParams } from 'next/navigation';
-
+import { useSearchParams } from "next/navigation";
 
 function App({ children }: { children: React.ReactNode }) {
-  const { currentDate, setCurrentDate, is24Hour, setIs24Hour, slug ,setViewMode , viewMode ,timeZones} =
-    useAppStore();
+  const {
+    currentDate,
+    setCurrentDate,
+    is24Hour,
+    setIs24Hour,
+    slug,
+    setViewMode,
+    viewMode,
+    timeZones,
+  } = useAppStore();
   // const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
-  
+
   const searchParams = useSearchParams();
 
   useEffect(() => {
+    const Is24HourSearchParams = searchParams.get("is24Hour");
 
-  const Is24HourSearchParams = searchParams.get('is24Hour');
+    if (Is24HourSearchParams && Is24HourSearchParams === "true") {
+      setIs24Hour(true);
+    }
+    const viewModeSearchParams = searchParams.get("viewMode");
 
-  if(Is24HourSearchParams && Is24HourSearchParams === "true") {
-    setIs24Hour(true);
-  }
-  const viewModeSearchParams = searchParams.get('viewMode');
+    if (viewModeSearchParams && viewModeSearchParams === "grid") {
+      setViewMode("grid");
+    }
 
-  if(viewModeSearchParams && viewModeSearchParams === "grid") {
-    setViewMode("grid");
-  } 
-
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // const [draggedZone, setDraggedZone] = useState<number | null>(null);
@@ -107,7 +114,7 @@ function App({ children }: { children: React.ReactNode }) {
             {/* Search Bar */}
             <div className="flex-grow max-w-md">
               <div className="relative">
-                <CountrySearchInput/>
+                <CountrySearchInput />
                 {/* <Input
                   type="text"
                   placeholder="Add Time Zone, City or Town"
@@ -159,17 +166,19 @@ function App({ children }: { children: React.ReactNode }) {
               <Button
                 variant={"outline"}
                 className="hidden md:flex"
-                onClick={() =>{
-                    navigator.clipboard.writeText(window.location.href+`?is24Hour=${is24Hour}&viewMode=${viewMode}`);
-                    toast("Link copied to clipboard", {
-                      description: "You can share this link with others",
-                      action: {
-                        label: "Undo",
-                        onClick: () => console.log("Undo"),
-                      },
-                    })
-                  }
-                }
+                onClick={() => {
+                  navigator.clipboard.writeText(
+                    window.location.href +
+                      `?is24Hour=${is24Hour}&viewMode=${viewMode}`
+                  );
+                  toast("Link copied to clipboard", {
+                    // description: "You can share this link with others",
+                    action: {
+                      label: "X",
+                      onClick: () => console.log("Undo"),
+                    },
+                  });
+                }}
                 // className="px-4 py-2 border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50"
               >
                 <LinkIcon size={20} />
@@ -281,4 +290,12 @@ function App({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default App;
+const Page = ({ children }: { children: React.ReactNode }) => {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <App>{children}</App>
+    </Suspense>
+  );
+};
+
+export default Page;
