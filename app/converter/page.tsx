@@ -12,7 +12,7 @@ function EmptyTimeZone() {
 
   return (
     <div className="text-center mt-32 px-5 font-semibold">
-      Begin by entering a Country, isoCode or time zone in the search box above
+      Begin by entering a Country, ISO Code or Time Zone in the search box above
     </div>
   );
 }
