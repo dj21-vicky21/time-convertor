@@ -5,6 +5,7 @@ import { Country, ICountry } from "country-state-city";
 import { Input } from "@/components/ui/input";
 import { useRouter } from "next/navigation";
 import { useAppStore } from "@/store/appStore";
+import { useDebounce } from '@/hooks/useDebounce';
 
 type TimezoneInfo = {
   abbreviation: string;
@@ -17,6 +18,7 @@ type TimezoneInfo = {
 export default function CountrySearchInput() {
   const { slug } = useAppStore()
   const [inputText, setInputText] = useState("");
+  const debouncedInputText = useDebounce(inputText, 300);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [timezoneData, setTimezoneData] = useState<
     Record<string, TimezoneInfo>
@@ -28,9 +30,9 @@ export default function CountrySearchInput() {
 
   // Filter and sort countries based on multiple criteria with priority
   const filteredResults = useMemo(() => {
-    if (!inputText.trim()) return [];
+    if (!debouncedInputText.trim()) return [];
 
-    const value = inputText.toLowerCase();
+    const value = debouncedInputText.toLowerCase();
 
     // First filter all possible matches
     const filtered = allCountries.filter((country) => {
@@ -103,7 +105,7 @@ export default function CountrySearchInput() {
       // Finally, sort by name
       return a.name.localeCompare(b.name);
     });
-  }, [inputText, allCountries]);
+  }, [debouncedInputText, allCountries]);
 
   // Calculate current times and timezone info for filtered results
   useEffect(() => {
