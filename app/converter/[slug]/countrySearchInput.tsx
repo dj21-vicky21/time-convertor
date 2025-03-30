@@ -112,7 +112,10 @@ export default function CountrySearchInput() {
       return;
     }
 
+    let isSubscribed = true; // Add cleanup flag
+
     const updateTimezoneData = () => {
+      if (!isSubscribed) return; // Check if still subscribed
       const newData: Record<string, TimezoneInfo> = {};
 
       filteredResults.forEach((country) => {
@@ -157,13 +160,13 @@ export default function CountrySearchInput() {
       setTimezoneData(newData);
     };
 
-    // Calculate immediately
     updateTimezoneData();
-
-    // Update times every minute
     const interval = setInterval(updateTimezoneData, 60000);
 
-    return () => clearInterval(interval);
+    return () => {
+      isSubscribed = false;
+      clearInterval(interval);
+    };
   }, [filteredResults, isDropdownOpen]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {

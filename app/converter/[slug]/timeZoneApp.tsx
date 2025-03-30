@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import TimeCard from "@/components/card";
 import { useAppStore } from "@/store/appStore";
 import { useRouter } from "next/navigation";
@@ -22,16 +22,18 @@ function TimeZoneApp({ slug }: { slug: string }) {
     setIsClient(true);
   }, []);
 
-  const handleTimeChange = (newDate: Date) => {
+  // Memoize these functions to prevent recreating on every render
+  const handleTimeChange = useCallback((newDate: Date) => {
     setCurrentDate(new Date(newDate));
-  };
+  }, [setCurrentDate]);
 
-  const removeTimeZone = (uuid: string) => {
+  const removeTimeZone = useCallback((uuid: string) => {
     const filterZones = timeZones.filter((tz) => tz.uuid !== uuid);
     setTimeZones(filterZones);
-  };
+  }, [setTimeZones,timeZones]);
 
-  function getValuesFromSlug(slug: string) {
+  // Memoize these pure functions
+  const getValuesFromSlug = useCallback((slug: string) => {
     const parts = slug.split("-").filter((part) => part.length > 0);
 
     // Return empty array if no valid parts
@@ -46,9 +48,9 @@ function TimeZoneApp({ slug }: { slug: string }) {
     return parts.filter(
       (part, index) => part !== "to" && (index === 0 || index > 1)
     );
-  }
+  }, []);
 
-  function generateSlugStructure(values: string[]) {
+  const generateSlugStructure = useCallback((values: string[]) => {
     // Filter out empty values
     const filtered = values.filter((v) => v && v.length > 0);
 
@@ -57,7 +59,7 @@ function TimeZoneApp({ slug }: { slug: string }) {
 
     // First element + "-to-" + remaining elements joined with "-"
     return `${filtered[0]}-to-${filtered.slice(1).join("-")}`;
-  }
+  }, []);
 
   const getURLTimeZones = async (a: string[]) => {
     const allCountries = await getTimezones(a);
@@ -68,23 +70,13 @@ function TimeZoneApp({ slug }: { slug: string }) {
     if (!slug) return;
 
     const fetchData = async () => {
-      // Set slug if it is not set yet
       setSlug(slug);
-
-      // Split slug into the timezone abbreviations or countries
       const splitSlug = getValuesFromSlug(slug);
       const validTimeZones = await getURLTimeZones(splitSlug);
       setTimeZones(validTimeZones);
-      console.log("--> ~ useEffect ~ splitSlug:", splitSlug);
-
+      
       if (!splitSlug.length) return;
-
-      // Generate the formatted slug structure
-      const formatedSlug = generateSlugStructure(splitSlug);
-      console.log("--> ~ useEffect ~ formatedSlug:", formatedSlug);
-
-      // Push to the new route
-      // router.push(formatedSlug);
+      // const formatedSlug = generateSlugStructure(splitSlug);
     };
 
     fetchData();

@@ -1,10 +1,10 @@
 export interface TimeZone {
+  uuid: string;
   id: string;
   offset: string;
   name: string;
   fullName: string;
   country: string;
-  uuid: string;
 }
 export interface TimeCardProps {
   removeTimeZone: (name: string) => void;
