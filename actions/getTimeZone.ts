@@ -1,8 +1,16 @@
 "use server";
 
 import { TimeZone } from "@/lib/types";
-import { Country } from "country-state-city";
+import { Country, ICountry } from "country-state-city";
 import { randomUUID } from 'crypto';
+
+// Define the timezone interface
+interface Timezone {
+  abbreviation: string;
+  tzName?: string;
+  zoneName?: string;
+  gmtOffset: number;
+}
 
 // Helper to safely decode URL components
 const safeDecodeURIComponent = (str: string): string => {
@@ -78,7 +86,7 @@ export const getTimezones = async (inputs: string[]): Promise<TimeZone[]> => {
     console.log('Processing timezone inputs:', inputs);
     
     // First, try to fetch all countries
-    let countries: any[] = [];
+    let countries: ICountry[] = [];
     try {
       countries = await Country.getAllCountries();
       console.log(`Successfully loaded ${countries.length} countries`);
@@ -94,7 +102,7 @@ export const getTimezones = async (inputs: string[]): Promise<TimeZone[]> => {
       // Build a map of all available timezones
       countries.forEach((country) => {
         if (country.timezones && country.timezones.length > 0) {
-          country.timezones.forEach((tz) => {
+          country.timezones.forEach((tz: Timezone) => {
             if (!tz.abbreviation) return; // Skip invalid timezones
             
             const key = `${tz.abbreviation.toUpperCase()}_${country.name.toLowerCase()}`;
