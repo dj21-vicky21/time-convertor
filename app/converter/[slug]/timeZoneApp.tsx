@@ -255,31 +255,51 @@ function TimeZoneApp({ slug }: { slug: string }) {
   }, []);
 
   const getURLTimeZones = async (a: string[]) => {
-    const allCountries = await getTimezones(a);
-    return allCountries;
+    try {
+      const allCountries = await getTimezones(a);
+      return allCountries;
+    } catch (error) {
+      console.error("Error fetching timezones:", error);
+      // Return fallback data if API fails
+      return a.map(id => ({
+        uuid: Math.random().toString(36).substring(2, 9),
+        id,
+        name: id.split('_')[0] || "TZ",
+        fullName: id.split('_').join(' '),
+        offset: "+00:00",
+        country: id.split('_').slice(1).join(' ') || "Unknown"
+      }));
+    }
   };
 
   useEffect(() => {
     if (!slug) return;
 
     const fetchData = async () => {
-      setSlug(slug);
-      const splitSlug = getValuesFromSlug(slug);
-      
-      // Limit to maximum 10 timezones
-      const limitedSlug = splitSlug.slice(0, 10);
-      
-      // If we're limiting the timezones, show a toast notification
-      if (limitedSlug.length < splitSlug.length) {
-        toast.warning("Maximum of 10 time zones allowed", {
-          description: "Only the first 10 time zones have been added."
-        });
+      try {
+        setSlug(slug);
+        const splitSlug = getValuesFromSlug(slug);
+        
+        // Limit to maximum 10 timezones
+        const limitedSlug = splitSlug.slice(0, 10);
+        
+        // If we're limiting the timezones, show a toast notification
+        if (limitedSlug.length < splitSlug.length) {
+          toast.warning("Maximum of 10 time zones allowed", {
+            description: "Only the first 10 time zones have been added."
+          });
+        }
+        
+        if (limitedSlug.length === 0) return;
+        
+        const validTimeZones = await getURLTimeZones(limitedSlug);
+        if (validTimeZones.length > 0) {
+          setTimeZones(validTimeZones);
+        }
+      } catch (error) {
+        console.error("Error in fetchData:", error);
+        // Don't redirect if there's an error, just log it
       }
-      
-      const validTimeZones = await getURLTimeZones(limitedSlug);
-      setTimeZones(validTimeZones);
-      
-      if (!limitedSlug.length) return;
     };
 
     fetchData();
