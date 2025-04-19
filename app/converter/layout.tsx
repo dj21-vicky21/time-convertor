@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useEffect, useState } from "react";
+import React, { Suspense, useEffect, useState, useCallback } from "react";
 import {
   Clock,
   Calendar,
@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { useAppStore } from "@/store/appStore";
 import CountrySearchInput from "./[slug]/countrySearchInput";
 import { toast } from "sonner";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, usePathname, useRouter } from "next/navigation";
 
 function App({ children }: { children: React.ReactNode }) {
   const {
@@ -33,35 +33,54 @@ function App({ children }: { children: React.ReactNode }) {
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
 
   const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const router = useRouter();
 
+  // Helper function to update URL params
+  const updateQueryParams = useCallback((params: Record<string, string>) => {
+    const urlSearchParams = new URLSearchParams(searchParams.toString());
+    
+    // Update params
+    Object.entries(params).forEach(([key, value]) => {
+      if (value === null || value === undefined) {
+        urlSearchParams.delete(key);
+      } else {
+        urlSearchParams.set(key, value);
+      }
+    });
+    
+    // Create the new URL
+    const newUrl = pathname + (urlSearchParams.toString() ? `?${urlSearchParams.toString()}` : '');
+    
+    // Update URL without refresh
+    router.replace(newUrl, { scroll: false });
+  }, [pathname, router, searchParams]);
+
+  // Load initial settings from URL
   useEffect(() => {
     const Is24HourSearchParams = searchParams.get("is24Hour");
-
     if (Is24HourSearchParams && Is24HourSearchParams === "true") {
       setIs24Hour(true);
     }
+    
     const viewModeSearchParams = searchParams.get("viewMode");
-
     if (viewModeSearchParams && viewModeSearchParams === "grid") {
       setViewMode("grid");
     }
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // const [draggedZone, setDraggedZone] = useState<number | null>(null);
-  // const searchParams = useSearchParams();
-
-  // const search = searchParams.get("timezone");
-
-  // https://www.npmjs.com/package/react-timezone-select
-  // eg
-  // https://ndom91.github.io/react-timezone-select/
-
-  // useEffect(() => {
-  //   if (!search) return;
-  //   setTimeZones(INITIAL_TIMEZONES);
-  // }, []);
+  }, [searchParams, setIs24Hour, setViewMode]);
+  
+  // Toggle 24 hour format
+  const toggle24HourFormat = useCallback(() => {
+    const newValue = !is24Hour;
+    setIs24Hour(newValue);
+    updateQueryParams({ is24Hour: newValue.toString() });
+  }, [is24Hour, setIs24Hour, updateQueryParams]);
+  
+  // Toggle view mode
+  const toggleViewMode = useCallback((mode: "list" | "grid") => {
+    setViewMode(mode);
+    updateQueryParams({ viewMode: mode });
+  }, [setViewMode, updateQueryParams]);
 
   const resetToNow = () => {
     setCurrentDate(new Date());
@@ -115,15 +134,22 @@ function App({ children }: { children: React.ReactNode }) {
             <div className="flex-grow max-w-md">
               <div className="relative">
                 <CountrySearchInput />
-                {/* <Input
-                  type="text"
-                  placeholder="Add Time Zone, City or Town"
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                /> */}
                 <Plus
                   className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
                   size={20}
                 />
+                {/* Timezone counter */}
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center">
+                  <span className={`text-xs px-2 py-0.5 rounded-full ${
+                    timeZones.length >= 10 
+                      ? "bg-amber-100 text-amber-800" 
+                      : timeZones.length >= 7
+                      ? "bg-yellow-100 text-yellow-800"
+                      : "bg-gray-100 text-gray-600"
+                  }`}>
+                    {timeZones.length}/10
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -167,19 +193,27 @@ function App({ children }: { children: React.ReactNode }) {
                 variant={"outline"}
                 className="hidden md:flex"
                 onClick={() => {
-                  navigator.clipboard.writeText(
-                    window.location.href +
-                      `?is24Hour=${is24Hour}&viewMode=${viewMode}`
-                  );
+                  // Create a shareable URL with the current settings
+                  const urlSearchParams = new URLSearchParams();
+                  urlSearchParams.set('is24Hour', is24Hour.toString());
+                  urlSearchParams.set('viewMode', viewMode);
+                  
+                  // Get the base URL (without any query parameters)
+                  const baseUrl = `${window.location.origin}${pathname}`;
+                  
+                  // Construct the full URL
+                  const shareableUrl = `${baseUrl}${urlSearchParams.toString() ? `?${urlSearchParams.toString()}` : ''}`;
+                  
+                  // Copy to clipboard
+                  navigator.clipboard.writeText(shareableUrl);
+                  
                   toast("Link copied to clipboard", {
-                    // description: "You can share this link with others",
                     action: {
                       label: "X",
                       onClick: () => console.log("Undo"),
                     },
                   });
                 }}
-                // className="px-4 py-2 border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50"
               >
                 <LinkIcon size={20} />
                 Save Link
@@ -205,7 +239,7 @@ function App({ children }: { children: React.ReactNode }) {
 
               <Button
                 variant={"outline"}
-                onClick={() => setIs24Hour(!is24Hour)}
+                onClick={toggle24HourFormat}
                 className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
                   is24Hour
                     ? "bg-primary text-white hover:bg-primary hover:text-white"
@@ -225,7 +259,7 @@ function App({ children }: { children: React.ReactNode }) {
               <>
                 <Button
                   variant={"outline"}
-                  onClick={() => setViewMode("list")}
+                  onClick={() => toggleViewMode("list")}
                   className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
                     viewMode === "list"
                       ? "bg-gray-900 text-white hover:bg-primary hover:text-white"
@@ -237,7 +271,7 @@ function App({ children }: { children: React.ReactNode }) {
                 </Button>
                 <Button
                   variant={"outline"}
-                  onClick={() => setViewMode("grid")}
+                  onClick={() => toggleViewMode("grid")}
                   className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
                     viewMode === "grid"
                       ? "bg-gray-900 text-white hover:bg-primary hover:text-white"
@@ -266,7 +300,7 @@ function App({ children }: { children: React.ReactNode }) {
 
         {/* Time Zones */}
         <div
-          className={`${
+          className={`transition-all duration-300 ease-in-out ${
             timeZones.length && viewMode === "grid"
               ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
               : "md:w-3xl space-y-4 m-auto"

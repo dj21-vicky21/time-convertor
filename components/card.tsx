@@ -1,11 +1,12 @@
 "use client";
 
-import { X } from "lucide-react";
+import { X, GripVertical } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
 import { Button } from "./ui/button";
 import { TimeZoneTimeline } from "./TimeZoneTimeline";
 import { TimeCardProps } from "@/lib/types";
 import { format, parse, addMinutes } from "date-fns";
+import { useAppStore } from "@/store/appStore";
 
 function TimeCard({
   removeTimeZone,
@@ -13,16 +14,23 @@ function TimeCard({
   currentDate,
   handleTimeChange,
   is24Hour,
+  index,
+  onDragStart,
+  onDragOver,
+  onDragEnd,
+  onDrop,
 }: TimeCardProps) {
   const [editableTime, setEditableTime] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const { timeZones } = useAppStore();
+  const isAtMaxLimit = timeZones.length >= 10;
 
   const getOffsetMinutes = (offsetStr: string): number => {
     const match = offsetStr.match(/([+-])(\d{2}):(\d{2})/);
     if (!match) return 0;
-    const [_, sign, hours, minutes] = match;
-    console.log("--> ~ getOffsetMinutes ~ _:", _)
+    const [, sign, hours, minutes] = match;
     const totalMinutes = parseInt(hours) * 60 + parseInt(minutes);
     return sign === "+" ? totalMinutes : -totalMinutes;
   };
@@ -77,27 +85,22 @@ function TimeCard({
       handleTimeChange(newDate);
       setIsEditing(false);
     } catch (error) {
-      console.log("--> ~ handleTimeSubmit ~ error:", error);
+      console.error("Invalid time format:", error);
       setIsEditing(false);
     }
   };
 
   useEffect(() => {
-    // Function to handle clicks outside the input
     const handleClickOutside = (event: MouseEvent) => {
       if (
         inputRef.current &&
         !inputRef.current.contains(event.target as Node)
       ) {
-        // Blur the input if the click is outside
         inputRef.current.blur();
       }
     };
 
-    // Add event listener for mousedown
     document.addEventListener("mousedown", handleClickOutside);
-
-    // Cleanup the event listener on unmount
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
@@ -105,8 +108,8 @@ function TimeCard({
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
-      inputRef.current.focus(); // Focus the input
-      inputRef.current.select(); // Select the text
+      inputRef.current.focus();
+      inputRef.current.select();
     }
   }, [isEditing]);
 
@@ -118,25 +121,29 @@ function TimeCard({
 
   return (
     <div
-      className={`timezone-card bg-white rounded-xl shadow-sm p-6 transition-all relative ${
-        // draggedZone === tz.id ? 'opacity-50 scale-105' : ''
-        ""
-      } hover:shadow-md`}
+      ref={cardRef}
+      className={`timezone-card bg-white rounded-xl shadow-sm p-6 transition-all relative hover:shadow-md ${
+        isAtMaxLimit ? 'border border-amber-200' : ''
+      }`}
+      draggable={false}
+      onDragOver={(e) => onDragOver && onDragOver(e, index)}
+      onDrop={(e) => onDrop && onDrop(e, index)}
+      data-index={index}
+      data-uuid={tz.uuid}
     >
       <div className="mb-4">
         <div className="flex items-center justify-between pr-10 flex-wrap">
           <div className="flex items-center gap-4">
-            {/* <div
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors cursor-move"
-              // onDragStart={(e) => handleDragStart(e, tz.id)}
-              // onDragOver={(e) => handleDragOver(e, tz.id)}
-              // onDragEnd={handleDragEnd}
-              // draggable
+            <div
+              className="p-2 hover:bg-gray-100 rounded-lg transition-colors cursor-move drag-handle"
+              onDragStart={(e) => onDragStart && onDragStart(e, index)}
+              onDragEnd={() => onDragEnd && onDragEnd()}
+              draggable
             >
               <GripVertical size={20} className="text-gray-400" />
-            </div> */}
+            </div>
             <div className="">
-              <h2 className="text-3xl font-bold min-w-[200px]">
+              <h2 className="text-3xl font-bold">
                 {tz.name}{" "}
                 <span className="text-xs font-light">({tz.fullName})</span>
               </h2>
@@ -176,7 +183,10 @@ function TimeCard({
         <Button
           variant={"ghost"}
           onClick={() => removeTimeZone(tz.uuid)}
-          className="absolute top-2 right-2 text-gray-400 hover:text-gray-600"
+          className={`absolute top-2 right-2 text-gray-400 hover:text-gray-600 ${
+            isAtMaxLimit ? 'animate-pulse bg-amber-50 text-amber-700 hover:bg-amber-100 hover:text-amber-800' : ''
+          }`}
+          title={isAtMaxLimit ? "Remove to add more timezones" : "Remove timezone"}
         >
           <X size={20} />
         </Button>

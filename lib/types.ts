@@ -6,12 +6,18 @@ export interface TimeZone {
   fullName: string;
   country: string;
 }
+
 export interface TimeCardProps {
   removeTimeZone: (name: string) => void;
   tz: TimeZone;
   currentDate: Date;
   handleTimeChange: (date: Date) => void;
   is24Hour: boolean;
+  index: number;
+  onDragStart?: (e: React.DragEvent, index: number) => void;
+  onDragOver?: (e: React.DragEvent, index: number) => void;
+  onDragEnd?: () => void;
+  onDrop?: (e: React.DragEvent, index: number) => void;
 }
 
 export interface TimeZoneTimelineProps {
