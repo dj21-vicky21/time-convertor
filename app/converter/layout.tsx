@@ -122,12 +122,12 @@ function App({ children }: { children: React.ReactNode }) {
           <h1 className="text-4xl font-bold text-gray-900 mb-2">
             Time Zone Converter
           </h1>
-         <div className="flex justify-between">
+         <div className="flex items-center justify-between h-8">
          <p className="text-lg text-gray-600">
             Compare multiple time zones and plan global meetings with ease
           </p>
           {/* View Toggle and Add Button */}
-        <div className="hidden md:flex justify-end items-center mb-6">
+        <div className="hidden md:flex justify-end items-center">
           <div className="flex gap-2">
             {slug && (
               <>
