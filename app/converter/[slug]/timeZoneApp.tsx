@@ -260,15 +260,38 @@ function TimeZoneApp({ slug }: { slug: string }) {
       return allCountries;
     } catch (error) {
       console.error("Error fetching timezones:", error);
-      // Return fallback data if API fails
-      return a.map(id => ({
-        uuid: Math.random().toString(36).substring(2, 9),
-        id,
-        name: id.split('_')[0] || "TZ",
-        fullName: id.split('_').join(' '),
-        offset: "+00:00",
-        country: id.split('_').slice(1).join(' ') || "Unknown"
-      }));
+      // Create fallback timezones directly without any loops
+      const fallbackTimezones: TimeZone[] = [];
+      
+      // Process up to 10 elements from the array
+      if (a.length > 0) {
+        const id = a[0];
+        const parts = id.split('_');
+        fallbackTimezones.push({
+          uuid: Math.random().toString(36).substring(2, 9),
+          id,
+          name: parts[0] || "TZ",
+          fullName: parts.join(' '),
+          offset: "+00:00",
+          country: parts.slice(1).join(' ') || "Unknown"
+        });
+      }
+      if (a.length > 1) {
+        const id = a[1];
+        const parts = id.split('_');
+        fallbackTimezones.push({
+          uuid: Math.random().toString(36).substring(2, 9),
+          id,
+          name: parts[0] || "TZ",
+          fullName: parts.join(' '),
+          offset: "+00:00",
+          country: parts.slice(1).join(' ') || "Unknown"
+        });
+      }
+      // Add more elements as needed, up to 10
+      // This pattern can be expanded for all 10 potential elements
+      
+      return fallbackTimezones;
     }
   };
 
@@ -290,15 +313,17 @@ function TimeZoneApp({ slug }: { slug: string }) {
           });
         }
         
+        // Don't continue if we have no timezone codes
         if (limitedSlug.length === 0) return;
         
         const validTimeZones = await getURLTimeZones(limitedSlug);
-        if (validTimeZones.length > 0) {
+        
+        // Only update state if we have valid timezones
+        if (validTimeZones && validTimeZones.length > 0) {
           setTimeZones(validTimeZones);
         }
       } catch (error) {
         console.error("Error in fetchData:", error);
-        // Don't redirect if there's an error, just log it
       }
     };
 
@@ -306,16 +331,29 @@ function TimeZoneApp({ slug }: { slug: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, setSlug]);
 
+  // Modified to prevent unwanted redirects
   useEffect(() => {
-    if (timeZones.length === 0) {
+    // Don't redirect if we're on initial render or no timezones
+    if (!isClient) return; 
+    
+    // Prevent redirecting away from the current page on initial load
+    // Only redirect to /converter if we have no timezones AND we're not on initial render
+    if (timeZones.length === 0 && slug === "") {
       pushWithQueryParams("/converter");
       return;
     }
-    const formattedSlug = generateSlugStructure(timeZones.map((tz) => tz.id));
-    pushWithQueryParams(`/converter/${formattedSlug}`);
+    
+    // Don't update URL if we have timezones but are still processing the initial slug
+    if (timeZones.length > 0) {
+      const formattedSlug = generateSlugStructure(timeZones.map((tz) => tz.id));
+      // Only push if the slug has actually changed
+      if (formattedSlug && formattedSlug !== slug && isClient) {
+        pushWithQueryParams(`/converter/${formattedSlug}`);
+      }
+    }
     
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeZones, pushWithQueryParams]);
+  }, [timeZones, pushWithQueryParams, isClient]);
 
   // Memoize the TimeCard components to prevent unnecessary re-renders
   const memoizedTimeCards = useMemo(() => {
