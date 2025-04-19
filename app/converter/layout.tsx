@@ -118,14 +118,63 @@ function App({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen bg-gray-50 p-6 text-gray-700">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-6">
           <h1 className="text-4xl font-bold text-gray-900 mb-2">
             Time Zone Converter
           </h1>
-          <p className="text-lg text-gray-600">
+         <div className="flex justify-between">
+         <p className="text-lg text-gray-600">
             Compare multiple time zones and plan global meetings with ease
           </p>
+          {/* View Toggle and Add Button */}
+        <div className="hidden md:flex justify-end items-center mb-6">
+          <div className="flex gap-2">
+            {slug && (
+              <>
+                <Button
+                  variant={"outline"}
+                  onClick={() => toggleViewMode("list")}
+                  className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
+                    viewMode === "list"
+                      ? "bg-gray-900 text-white hover:bg-primary hover:text-white"
+                      : "bg-white text-gray-700 hover:text-black hover:bg-gray-100"
+                  }`}
+                >
+                  <List size={20} />
+                  List View
+                </Button>
+                <Button
+                  variant={"outline"}
+                  onClick={() => toggleViewMode("grid")}
+                  className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
+                    viewMode === "grid"
+                      ? "bg-gray-900 text-white hover:bg-primary hover:text-white"
+                      : "bg-white text-gray-700 hover:text-black hover:bg-gray-100"
+                  }`}
+                >
+                  <Grid size={20} />
+                  Grid View
+                </Button>
+              </>
+            )}
+          </div>
+
+          {/* <Button
+            variant={'outline'}
+            onClick={() => {
+              const newId = Math.max(...timeZones.map(tz => tz.id)) + 1;
+              setTimeZones([...timeZones, { id: newId, name: 'GMT', fullName: 'Greenwich Mean Time', offset: '+00:00' }]);
+            }}
+            className="px-4 py-2  rounded-lg flex items-center gap-2"
+          >
+            <Plus size={20} />
+            Add Time Zone
+          </Button> */}
         </div>
+         </div>
+        </div>
+
+        
 
         {/* Controls */}
         <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
@@ -252,51 +301,7 @@ function App({ children }: { children: React.ReactNode }) {
           </div>
         </div>
 
-        {/* View Toggle and Add Button */}
-        <div className="hidden md:flex justify-end items-center mb-6">
-          <div className="flex gap-2">
-            {slug && (
-              <>
-                <Button
-                  variant={"outline"}
-                  onClick={() => toggleViewMode("list")}
-                  className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
-                    viewMode === "list"
-                      ? "bg-gray-900 text-white hover:bg-primary hover:text-white"
-                      : "bg-white text-gray-700 hover:text-black hover:bg-gray-100"
-                  }`}
-                >
-                  <List size={20} />
-                  List View
-                </Button>
-                <Button
-                  variant={"outline"}
-                  onClick={() => toggleViewMode("grid")}
-                  className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
-                    viewMode === "grid"
-                      ? "bg-gray-900 text-white hover:bg-primary hover:text-white"
-                      : "bg-white text-gray-700 hover:text-black hover:bg-gray-100"
-                  }`}
-                >
-                  <Grid size={20} />
-                  Grid View
-                </Button>
-              </>
-            )}
-          </div>
-
-          {/* <Button
-            variant={'outline'}
-            onClick={() => {
-              const newId = Math.max(...timeZones.map(tz => tz.id)) + 1;
-              setTimeZones([...timeZones, { id: newId, name: 'GMT', fullName: 'Greenwich Mean Time', offset: '+00:00' }]);
-            }}
-            className="px-4 py-2  rounded-lg flex items-center gap-2"
-          >
-            <Plus size={20} />
-            Add Time Zone
-          </Button> */}
-        </div>
+        
 
         {/* Time Zones */}
         <div

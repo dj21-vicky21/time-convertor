@@ -2,33 +2,50 @@
 
 import React, { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Clock } from "lucide-react";
 
-function Home() {
+export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    router.push("/converter");
+    // Redirect to converter page after a short delay
+    const timer = setTimeout(() => {
+      router.push("/converter");
+    }, 500);
+    
+    // Clean up timer
+    return () => clearTimeout(timer);
   }, [router]);
 
+
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-background to-muted">
-      <div className="text-center animate-[fadeIn_0.3s_ease-out]">
-        <div className="relative">
-          <Clock className="w-16 h-16 text-primary animate-[pulse_1s_ease-in-out_infinite]" />
-          <div className="absolute -inset-2 bg-primary/20 rounded-full blur-md animate-[pulse_1s_ease-in-out_infinite]" />
+    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 text-gray-800">
+      <div className="text-center relative z-10">
+        {/* Clock icon with pulse effect */}
+        <div className="relative inline-flex mb-8">
+          <div className="relative size-24 rounded-full bg-white border border-gray-200 flex items-center justify-center shadow-sm">
+            {/* Hour hand */}
+            <div className="w-1 h-10 bg-gray-600 origin-bottom absolute rounded-full animate-[spin_10s_linear_infinite] top-[8px]"></div>
+            {/* Minute hand */}
+            <div className="w-1 h-7 bg-gray-800 origin-bottom absolute rounded-full animate-[spin_60s_linear_infinite] top-[20px]"></div>
+            {/* Center dot */}
+            <div className="w-2 h-2 rounded-full bg-gray-900 absolute"></div>
+          </div>
         </div>
         
-        <h1 className="mt-6 text-4xl font-bold text-foreground">
+        {/* Loading title */}
+        <h1 className="text-4xl font-bold text-gray-800 mb-2">
           Time Zone Converter
         </h1>
         
-        <div className="flex justify-center gap-2 mt-4">
+        <p className="text-gray-500 mb-6">Loading...</p>
+        
+        {/* Loading dots */}
+        <div className="flex justify-center gap-2">
           {[0, 1, 2].map((i) => (
             <div
               key={i}
-              className={`w-2 h-2 rounded-full bg-primary animate-[bounce_0.3s_infinite_alternate] opacity-70`}
-              style={{ animationDelay: `${i * 0.1}s` }}
+              className="w-2 h-2 rounded-full bg-gray-400 animate-[pulse_1s_ease-in-out_infinite]"
+              style={{ animationDelay: `${i * 0.2}s` }}
             />
           ))}
         </div>
@@ -36,5 +53,3 @@ function Home() {
     </div>
   );
 }
-
-export default Home;
