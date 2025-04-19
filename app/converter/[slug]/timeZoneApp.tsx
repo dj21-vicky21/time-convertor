@@ -8,6 +8,13 @@ import { getTimezones } from "@/actions/getTimeZone";
 import { toast } from "sonner";
 import { TimeZone } from "@/lib/types";
 
+// Add type for window extension
+declare global {
+  interface Window {
+    updateURLTimeout?: number;
+  }
+}
+
 function TimeZoneApp({ slug }: { slug: string }) {
   const {
     currentDate,
@@ -120,17 +127,37 @@ function TimeZoneApp({ slug }: { slug: string }) {
     // Use passed array or current state
     const zonesToUse = tzArray || timeZones;
     
-    // Skip if no timezones
+    // Skip if no timezones or we're still loading initial data
     if (!zonesToUse.length) return;
     
-    const formattedSlug = generateSlugStructure(zonesToUse.map(tz => tz.id));
+    // Create new slug from timezone IDs - optimized to minimize processing
+    const timezoneIds = zonesToUse.map(tz => tz.id);
+    const formattedSlug = generateSlugStructure(timezoneIds);
     
     // Only update if different from current slug
     if (formattedSlug && formattedSlug !== lastSlugRef.current) {
+      // Update ref first to prevent duplicate updates
       lastSlugRef.current = formattedSlug;
-      pushWithQueryParams(`/converter/${formattedSlug}`);
+      
+      // Use requestAnimationFrame for better performance
+      requestAnimationFrame(() => {
+        pushWithQueryParams(`/converter/${formattedSlug}`);
+      });
     }
   }, [isClient, generateSlugStructure, timeZones, pushWithQueryParams]);
+  
+  // Enhanced optimization - debounce URL updates during rapid changes
+  const debouncedUpdateURL = useCallback((tzArray?: TimeZone[]) => {
+    if (typeof window === 'undefined') return;
+    
+    if (window.updateURLTimeout) {
+      clearTimeout(window.updateURLTimeout);
+    }
+    
+    window.updateURLTimeout = setTimeout(() => {
+      updateURL(tzArray);
+    }, 100) as unknown as number;
+  }, [updateURL]);
 
   // Efficient time change handler - only creates new Date when needed
   const handleTimeChange = useCallback((newDate: Date) => {
@@ -224,11 +251,9 @@ function TimeZoneApp({ slug }: { slug: string }) {
     // Update state with the new order
     setTimeZones(newTimeZones);
     
-    // Force URL update with the new timezone order
-    setTimeout(() => {
-      updateURL(newTimeZones);
-    }, 200);
-  }, [draggedIndex, setTimeZones, updateURL]);
+    // Update URL with the new timezone order - use debounced version
+    debouncedUpdateURL(newTimeZones);
+  }, [draggedIndex, setTimeZones, debouncedUpdateURL]);
 
   const handleDragEnd = useCallback(() => {
     setDraggedIndex(null);
@@ -258,11 +283,9 @@ function TimeZoneApp({ slug }: { slug: string }) {
       cards: null,
     };
     
-    // Also make sure URL is updated with the final order
-    setTimeout(() => {
-      updateURL(updatedTimeZones);
-    }, 200);
-  }, [setTimeZones, updateURL]);
+    // Update URL - use debounced version for better performance 
+    debouncedUpdateURL(updatedTimeZones);
+  }, [setTimeZones, debouncedUpdateURL]);
 
   // Optimized timezone removal
   const removeTimeZone = useCallback((uuid: string) => {
@@ -288,20 +311,19 @@ function TimeZoneApp({ slug }: { slug: string }) {
       setTimeZones(filtered);
       
       // Update URL after state update
-      setTimeout(() => {
-        if (isClient) {
-          if (filtered.length === 0) {
-            pushWithQueryParams('/converter');
-          } else {
-            updateURL(filtered);
-          }
+      if (isClient) {
+        if (filtered.length === 0) {
+          pushWithQueryParams('/converter');
+        } else {
+          // Use debounced update for better performance
+          debouncedUpdateURL(filtered);
         }
-        
-        // Cleanup tracking
-        removingCardsRef.current.delete(uuid);
-      }, 200);
+      }
+      
+      // Cleanup tracking
+      removingCardsRef.current.delete(uuid);
     }, 100);
-  }, [setTimeZones, timeZones, isClient, updateURL, pushWithQueryParams]);
+  }, [setTimeZones, timeZones, isClient, debouncedUpdateURL, pushWithQueryParams]);
 
   // Initial data loading - optimized to prevent unnecessary loads
   useEffect(() => {
@@ -334,10 +356,12 @@ function TimeZoneApp({ slug }: { slug: string }) {
           // Set initial load done BEFORE updating URL
           initialLoadDoneRef.current = true;
           
-          // Ensure URL is updated properly with the loaded data
-          setTimeout(() => {
-            updateURL(validTimeZones);
-          }, 100);
+          // Ensure URL is properly synced with the loaded data
+          requestAnimationFrame(() => {
+            if (isClient) {
+              debouncedUpdateURL(validTimeZones);
+            }
+          });
         }
       } catch (error) {
         console.error("Error loading timezones:", error);
@@ -345,7 +369,7 @@ function TimeZoneApp({ slug }: { slug: string }) {
     };
 
     fetchData();
-  }, [slug, setSlug, getValuesFromSlug, setTimeZones, updateURL]);
+  }, [slug, setSlug, getValuesFromSlug, setTimeZones, isClient, debouncedUpdateURL]);
 
   // Only redirect to home when necessary (empty timezones and not loading)
   useEffect(() => {
