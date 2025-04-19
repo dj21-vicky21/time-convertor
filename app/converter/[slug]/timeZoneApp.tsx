@@ -212,23 +212,35 @@ function TimeZoneApp({ slug }: { slug: string }) {
 
   // Memoize these pure functions
   const getValuesFromSlug = useCallback((slug: string) => {
-    // Decode URL-encoded characters (like %20 for spaces)
-    const decodedSlug = decodeURIComponent(slug);
-    
-    const parts = decodedSlug.split("-").filter((part) => part.length > 0);
+    try {
+      // Decode URL-encoded characters (like %20 for spaces)
+      let decodedSlug;
+      try {
+        decodedSlug = decodeURIComponent(slug);
+      } catch (e) {
+        console.error("Error decoding slug:", e);
+        decodedSlug = slug; // Fall back to raw slug if decoding fails
+      }
+      
+      const parts = decodedSlug.split("-").filter((part) => part.length > 0);
 
-    // Return empty array if no valid parts
-    if (parts.length === 0) return [];
+      // Return empty array if no valid parts
+      if (parts.length === 0) return [];
 
-    // Only return [firstValue] if "to" doesn't appear right after it
-    if (parts.length < 2 || parts[1] !== "to") {
-      return [parts[0]];
+      // Only return [firstValue] if "to" doesn't appear right after it
+      if (parts.length < 2 || parts[1] !== "to") {
+        return [parts[0]];
+      }
+
+      // If "to" appears right after first value, return all non-"to" values
+      return parts.filter(
+        (part, index) => part !== "to" && (index === 0 || index > 1)
+      );
+    } catch (error) {
+      console.error("Error in getValuesFromSlug:", error);
+      // Return a safe fallback
+      return [];
     }
-
-    // If "to" appears right after first value, return all non-"to" values
-    return parts.filter(
-      (part, index) => part !== "to" && (index === 0 || index > 1)
-    );
   }, []);
 
   const generateSlugStructure = useCallback((values: string[]) => {
