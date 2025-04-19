@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAppStore } from "@/store/appStore";
 import { useDebounce } from '@/hooks/useDebounce';
+import { toast } from "sonner";
 
 type TimezoneInfo = {
   abbreviation: string;
@@ -117,7 +118,144 @@ export default function CountrySearchInput() {
   }, [router, searchParams, is24Hour, viewMode]);
 
   // Get all countries once and memoize
-  const allCountries = useMemo(() => Country.getAllCountries(), []);
+  const allCountries = useMemo(() => {
+    try {
+      const countries = Country.getAllCountries();
+      
+      // Add error handling for empty country list
+      if (!countries || countries.length === 0) {
+        console.error('Country list is empty, using fallback data');
+        return [
+          {
+            name: "United States",
+            isoCode: "US",
+            flag: "🇺🇸",
+            phonecode: "1",
+            currency: "USD",
+            latitude: "37.09024",
+            longitude: "-95.712891",
+            timezones: [
+              {
+                zoneName: "America/New_York",
+                gmtOffset: -18000,
+                abbreviation: "EST",
+                tzName: "Eastern Standard Time"
+              }
+            ]
+          },
+          {
+            name: "United Kingdom",
+            isoCode: "GB",
+            flag: "🇬🇧",
+            phonecode: "44",
+            currency: "GBP",
+            latitude: "55.378051",
+            longitude: "-3.435973",
+            timezones: [
+              {
+                zoneName: "Europe/London",
+                gmtOffset: 0,
+                abbreviation: "GMT",
+                tzName: "Greenwich Mean Time"
+              }
+            ]
+          },
+          {
+            name: "India",
+            isoCode: "IN",
+            flag: "🇮🇳",
+            phonecode: "91",
+            currency: "INR",
+            latitude: "20.593684",
+            longitude: "78.96288",
+            timezones: [
+              {
+                zoneName: "Asia/Kolkata",
+                gmtOffset: 19800,
+                abbreviation: "IST",
+                tzName: "Indian Standard Time"
+              }
+            ]
+          },
+          {
+            name: "Singapore",
+            isoCode: "SG",
+            flag: "🇸🇬",
+            phonecode: "65",
+            currency: "SGD",
+            latitude: "1.352083",
+            longitude: "103.819836",
+            timezones: [
+              {
+                zoneName: "Asia/Singapore",
+                gmtOffset: 28800,
+                abbreviation: "SGT",
+                tzName: "Singapore Time"
+              }
+            ]
+          },
+          {
+            name: "Japan",
+            isoCode: "JP",
+            flag: "🇯🇵",
+            phonecode: "81",
+            currency: "JPY",
+            latitude: "36.204824",
+            longitude: "138.252924",
+            timezones: [
+              {
+                zoneName: "Asia/Tokyo",
+                gmtOffset: 32400,
+                abbreviation: "JST",
+                tzName: "Japan Standard Time"
+              }
+            ]
+          }
+        ] as ICountry[];
+      }
+      
+      return countries;
+    } catch (error) {
+      console.error('Error loading countries:', error);
+      // Return a basic fallback list if Country.getAllCountries fails
+      return [
+        {
+          name: "United States",
+          isoCode: "US",
+          flag: "🇺🇸",
+          phonecode: "1",
+          currency: "USD",
+          latitude: "37.09024",
+          longitude: "-95.712891",
+          timezones: [
+            {
+              zoneName: "America/New_York",
+              gmtOffset: -18000,
+              abbreviation: "EST",
+              tzName: "Eastern Standard Time"
+            }
+          ]
+        },
+        {
+          name: "Singapore",
+          isoCode: "SG",
+          flag: "🇸🇬",
+          phonecode: "65",
+          currency: "SGD",
+          latitude: "1.352083",
+          longitude: "103.819836",
+          timezones: [
+            {
+              zoneName: "Asia/Singapore",
+              gmtOffset: 28800,
+              abbreviation: "SGT",
+              tzName: "Singapore Time"
+            }
+          ]
+        }
+      ] as ICountry[];
+    }
+  }, []);
 
   // Filter and sort countries based on multiple criteria with priority
   const filteredResults = useMemo(() => {
@@ -272,50 +410,85 @@ export default function CountrySearchInput() {
     e.preventDefault();
     e.stopPropagation();
     
-    // Check if maximum limit is reached
-    if (timeZones.length >= MAX_TIMEZONES) {
-      showWarningWithTimeout();
+    try {
+      // Check if maximum limit is reached
+      if (timeZones.length >= MAX_TIMEZONES) {
+        showWarningWithTimeout();
+        
+        // Close dropdown without adding more timezones
+        setIsDropdownOpen(false);
+        setInputText("");
+        return;
+      }
       
-      // Close dropdown without adding more timezones
+      // Validate timezone data
+      if (!country.timezones || !country.timezones.length) {
+        console.warn('Country has no timezone data:', country.name);
+        toast.error(`${country.name} has no timezone data`);
+        return;
+      }
+      
+      // Validate that the timezone has necessary data
+      const timezone = country.timezones[0];
+      if (!timezone.abbreviation) {
+        console.warn('Invalid timezone data for country:', country.name);
+        
+        // Create a fallback abbreviation if needed
+        const fallbackAbbreviation = country.isoCode + "T";
+        
+        // Build a fallback URL with the country code
+        const fallbackCode = `${fallbackAbbreviation}_${country.name}`;
+        let basePath;
+        if (slug.includes("-to-")) {
+          basePath = `${slug}-${encodeURIComponent(fallbackCode)}`;
+        } else if (slug) {
+          basePath = `${slug}-to-${encodeURIComponent(fallbackCode)}`;
+        } else {
+          basePath = encodeURIComponent(fallbackCode);
+        }
+        
+        // Close dropdown
+        setIsDropdownOpen(false);
+        setInputText("");
+        
+        // Navigate with the fallback
+        setTimeout(() => {
+          navigateWithParams(`/converter/${basePath}`);
+        }, 50);
+        
+        return;
+      }
+      
+      // Create the country code with URL encoding for the country name
+      const countryCode = `${timezone.abbreviation}_${country.name}`;
+      
+      // Build the path with proper URL encoding
+      let basePath;
+      if (slug.includes("-to-")) {
+        basePath = `${slug}-${encodeURIComponent(countryCode)}`;
+      } else if (slug) {
+        basePath = `${slug}-to-${encodeURIComponent(countryCode)}`;
+      } else {
+        basePath = encodeURIComponent(countryCode);
+      }
+      
+      // Log the navigation path for debugging
+      console.log('Navigating to:', `/converter/${basePath}`);
+      
+      // Close dropdown immediately to prevent further interactions
       setIsDropdownOpen(false);
       setInputText("");
-      return;
+      
+      // Navigate with a small delay to ensure state is updated
+      setTimeout(() => {
+        navigateWithParams(`/converter/${basePath}`);
+      }, 50);
+    } catch (error) {
+      console.error('Error in handleItemClick:', error);
+      toast.error('Error selecting time zone');
+      setIsDropdownOpen(false);
+      setInputText("");
     }
-    
-    // Validate timezone data
-    if (!country.timezones || !country.timezones.length) {
-      console.warn('Country has no timezone data:', country.name);
-      return;
-    }
-    
-    // Validate that the timezone has necessary data
-    const timezone = country.timezones[0];
-    if (!timezone.abbreviation) {
-      console.warn('Invalid timezone data for country:', country.name);
-      return;
-    }
-    
-    // Create the country code with URL encoding for the country name
-    const countryCode = `${timezone.abbreviation}_${country.name}`;
-    
-    // Build the path with proper URL encoding
-    let basePath;
-    if (slug.includes("-to-")) {
-      basePath = `${slug}-${encodeURIComponent(countryCode)}`;
-    } else if (slug) {
-      basePath = `${slug}-to-${encodeURIComponent(countryCode)}`;
-    } else {
-      basePath = encodeURIComponent(countryCode);
-    }
-    
-    // Close dropdown immediately to prevent further interactions
-    setIsDropdownOpen(false);
-    setInputText("");
-    
-    // Navigate with a small delay to ensure state is updated
-    setTimeout(() => {
-      navigateWithParams(`/converter/${basePath}`);
-    }, 50);
   };
 
   // Reference to maintain the dropdown
