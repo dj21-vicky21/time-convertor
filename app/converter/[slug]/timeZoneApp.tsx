@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import TimeCard from "@/components/card";
 import { useAppStore } from "@/store/appStore";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { getTimezones } from "@/actions/getTimeZone";
 import { toast } from "sonner";
 import { TimeZone } from "@/lib/types";
@@ -22,24 +22,39 @@ function TimeZoneApp({ slug }: { slug: string }) {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname();
   
   // Reference to store timeZones order separately from state to prevent re-renders
   const timeZonesRef = useRef<TimeZone[]>([]);
   
-  // Refs for URL update debouncing
-  const urlUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // Track URL updates
   const lastSlugRef = useRef<string>(slug);
   
-  // Track card UUIDs that are currently being removed to prevent duplicate removals
+  // Track card UUIDs that are currently being removed
   const removingCardsRef = useRef<Set<string>>(new Set());
   
-  // Update ref when timeZones changes
+  // Track if initial data has been loaded
+  const initialLoadDoneRef = useRef(false);
+  
+  // Maximum number of timezones allowed
+  const MAX_TIMEZONES = 10;
+  
+  // Create a ref for the drag and drop operation
+  const dragDropRef = useRef<{
+    cards: NodeListOf<Element> | null;
+    draggingElement: HTMLElement | null;
+  }>({ cards: null, draggingElement: null });
+  
+  // Update timeZonesRef when timeZones changes
   useEffect(() => {
     timeZonesRef.current = timeZones;
   }, [timeZones]);
 
-  // Helper function to preserve query parameters
+  // Helper function to preserve query parameters - memoized to prevent recreating
   const pushWithQueryParams = useCallback((path: string) => {
+    // Skip if we're already at this path to prevent unnecessary navigation
+    if (path.split('?')[0] === pathname) return;
+    
     // Get current query params
     const params = new URLSearchParams(searchParams.toString());
     
@@ -51,186 +66,94 @@ function TimeZoneApp({ slug }: { slug: string }) {
     const newUrl = params.toString() ? `${path}?${params.toString()}` : path;
     
     // Navigate
-    router.push(newUrl);
-  }, [router, searchParams, is24Hour, viewMode]);
+    router.push(newUrl, {scroll: false});
+  }, [router, searchParams, is24Hour, viewMode, pathname]);
 
   useEffect(() => {
     setIsClient(true);
-    
-    // Cleanup timeout on unmount
-    return () => {
-      if (urlUpdateTimeoutRef.current) {
-        clearTimeout(urlUpdateTimeoutRef.current);
-      }
-    };
   }, []);
 
-  // Memoize these pure functions
+  // Fast slug parsing - optimized to reduce calculations
   const getValuesFromSlug = useCallback((slug: string) => {
+    if (!slug) return [];
+    
     try {
       // Decode URL-encoded characters (like %20 for spaces)
       let decodedSlug;
       try {
         decodedSlug = decodeURIComponent(slug);
-      } catch (e) {
-        console.error("Error decoding slug:", e);
+      } catch {
         decodedSlug = slug; // Fall back to raw slug if decoding fails
       }
       
-      const parts = decodedSlug.split("-").filter((part) => part.length > 0);
-
-      // Return empty array if no valid parts
+      const parts = decodedSlug.split("-");
+      
+      // Fast path for simple case
       if (parts.length === 0) return [];
-
-      // Only return [firstValue] if "to" doesn't appear right after it
-      if (parts.length < 2 || parts[1] !== "to") {
+      if (parts.length === 1) return [parts[0]];
+      
+      // Handle "to" format
+      if (parts.length >= 2 && parts[1] === "to") {
+        return [parts[0], ...parts.slice(2)].filter(Boolean);
+      } else {
         return [parts[0]];
       }
-
-      // If "to" appears right after first value, return all non-"to" values
-      return parts.filter(
-        (part, index) => part !== "to" && (index === 0 || index > 1)
-      );
-    } catch (error) {
-      console.error("Error in getValuesFromSlug:", error);
-      // Return a safe fallback
+    } catch {
       return [];
     }
   }, []);
 
+  // Generate slug efficiently
   const generateSlugStructure = useCallback((values: string[]) => {
-    // Filter out empty values
-    const filtered = values.filter((v) => v && v.length > 0);
-
-    if (filtered.length === 0) return "";
-    if (filtered.length === 1) return encodeURIComponent(filtered[0]);
-
-    // First element + "-to-" + remaining elements joined with "-", with URL encoding
-    return `${encodeURIComponent(filtered[0])}-to-${filtered.slice(1).map(v => encodeURIComponent(v)).join("-")}`;
+    // Fast path for empty or single value
+    if (!values.length) return "";
+    if (values.length === 1) return encodeURIComponent(values[0]);
+    
+    // First element + "-to-" + remaining elements
+    return `${encodeURIComponent(values[0])}-to-${values.slice(1).map(encodeURIComponent).join("-")}`;
   }, []);
 
-  // Create a manual URL update function - defined BEFORE it's used
+  // Optimized URL update function
   const updateURL = useCallback(() => {
     if (!isClient) return;
-    const formattedSlug = generateSlugStructure(timeZones.map((tz) => tz.id));
-    if (formattedSlug && formattedSlug !== slug) {
-      // Directly update without debounce since this is explicitly called
+    
+    // Skip if no timezones
+    if (!timeZones.length) return;
+    
+    const formattedSlug = generateSlugStructure(timeZones.map(tz => tz.id));
+    
+    // Only update if different from current slug
+    if (formattedSlug && formattedSlug !== lastSlugRef.current) {
       lastSlugRef.current = formattedSlug;
       pushWithQueryParams(`/converter/${formattedSlug}`);
     }
-  }, [isClient, generateSlugStructure, timeZones, slug, pushWithQueryParams]);
+  }, [isClient, generateSlugStructure, timeZones, pushWithQueryParams]);
 
-  // Memoize these functions to prevent recreating on every render
+  // Efficient time change handler - only creates new Date when needed
   const handleTimeChange = useCallback((newDate: Date) => {
-    setCurrentDate(new Date(newDate));
+    setCurrentDate(newDate);
   }, [setCurrentDate]);
-
-  const removeTimeZone = useCallback((uuid: string) => {
-    // Check if this card is already being removed
-    if (removingCardsRef.current.has(uuid)) {
-      return; // Skip if already in process of being removed
-    }
-    
-    // Mark this card as being removed
-    removingCardsRef.current.add(uuid);
-    
-    // First update our internal reference to prevent any sync issues
-    timeZonesRef.current = timeZonesRef.current.filter((tz) => tz.uuid !== uuid);
-    
-    // Add visual feedback for removal
-    const cardToRemove = document.querySelector(`[data-uuid="${uuid}"]`);
-    if (cardToRemove) {
-      cardToRemove.classList.add('removing');
-      
-      // Short delay for animation, then remove from state
-      setTimeout(() => {
-        // Filter out the timezone to remove
-        const filtered = timeZones.filter((tz: TimeZone) => tz.uuid !== uuid);
-        // Update state with the filtered array
-        setTimeZones(filtered);
-        
-        // Update URL only after state is fully updated
-        setTimeout(() => {
-          // Double check we're still on client
-          if (isClient) {
-            const newSlug = generateSlugStructure(filtered.map((tz: TimeZone) => tz.id));
-            // Only update if there's something to update and we're on client
-            if (newSlug !== slug) {
-              pushWithQueryParams(`/converter/${newSlug}`);
-            } else if (filtered.length === 0) {
-              // If we removed the last timezone, go to home page
-              pushWithQueryParams('/converter');
-            }
-          }
-          
-          // Remove from the tracking set once complete
-          removingCardsRef.current.delete(uuid);
-        }, 200);
-      }, 100);
-    } else {
-      // If element not found, use direct state update
-      const filtered = timeZones.filter((tz: TimeZone) => tz.uuid !== uuid);
-      setTimeZones(filtered);
-      
-      // Update URL after state update completes
-      setTimeout(() => {
-        if (isClient) {
-          if (filtered.length === 0) {
-            pushWithQueryParams('/converter');
-          } else {
-            const newSlug = generateSlugStructure(filtered.map((tz: TimeZone) => tz.id));
-            if (newSlug !== slug) {
-              pushWithQueryParams(`/converter/${newSlug}`);
-            }
-          }
-        }
-        
-        // Remove from the tracking set once complete
-        removingCardsRef.current.delete(uuid);
-      }, 200);
-    }
-  }, [setTimeZones, timeZones, isClient, generateSlugStructure, pushWithQueryParams, slug]);
-
-  // Maximum number of timezones allowed
-  const MAX_TIMEZONES = 10;
-  
-  // Create a ref for the drag and drop operation
-  const dragDropRef = useRef<{
-    cards: NodeListOf<Element> | null;
-    draggingElement: HTMLElement | null;
-  }>({ cards: null, draggingElement: null });
 
   // Drag and drop handlers
   const handleDragStart = useCallback((e: React.DragEvent, index: number) => {
-    // Check if we're already at the maximum limit
-    if (timeZones.length >= MAX_TIMEZONES) {
-      // Only allow drag if we're reordering existing items
-      setDraggedIndex(index);
-    } else {
-      setDraggedIndex(index);
-    }
+    setDraggedIndex(index);
     
-    // Get the card element
+    // Get and store card element
     const card = e.currentTarget.closest('.timezone-card') as HTMLElement;
     if (!card) return;
     
-    // Store dragging element reference
-    dragDropRef.current.draggingElement = card;
+    // Store references for later
+    dragDropRef.current = {
+      draggingElement: card,
+      cards: document.querySelectorAll('.timezone-card')
+    };
     
-    // Get all cards for later operations
-    dragDropRef.current.cards = document.querySelectorAll('.timezone-card');
-    
-    // Set opacity of the dragged element
-    if (e.currentTarget instanceof HTMLElement) {
-      e.currentTarget.style.opacity = '0.4';
-    }
-    
-    // Set drag image and add visual class
-    e.dataTransfer.setDragImage(card, 20, 20);
+    // Visual updates
+    card.style.opacity = '0.4';
     card.classList.add('dragging');
-    
+    e.dataTransfer.setDragImage(card, 20, 20);
     e.dataTransfer.effectAllowed = 'move';
-  }, [timeZones.length]);
+  }, []);
 
   const handleDragOver = useCallback((e: React.DragEvent, index: number) => {
     e.preventDefault();
@@ -332,134 +255,101 @@ function TimeZoneApp({ slug }: { slug: string }) {
     setTimeZones([...timeZonesRef.current]);
   }, [setTimeZones]);
 
-  const getURLTimeZones = async (a: string[]) => {
-    try {
-      const allCountries = await getTimezones(a);
-      return allCountries;
-    } catch (error) {
-      console.error("Error fetching timezones:", error);
-      // Create fallback timezones directly without any loops
-      const fallbackTimezones: TimeZone[] = [];
+  // Optimized timezone removal
+  const removeTimeZone = useCallback((uuid: string) => {
+    // Skip if already removing
+    if (removingCardsRef.current.has(uuid)) return;
+    
+    // Mark as being removed
+    removingCardsRef.current.add(uuid);
+    
+    // Update internal reference immediately
+    timeZonesRef.current = timeZonesRef.current.filter(tz => tz.uuid !== uuid);
+    
+    // Find and mark the card
+    const cardToRemove = document.querySelector(`[data-uuid="${uuid}"]`);
+    if (cardToRemove) cardToRemove.classList.add('removing');
+    
+    // Batch state update and URL update with appropriate timing
+    setTimeout(() => {
+      // Create filtered array once
+      const filtered = timeZones.filter(tz => tz.uuid !== uuid);
       
-      // Process up to 10 elements from the array
-      if (a.length > 0) {
-        const id = a[0];
-        const parts = id.split('_');
-        fallbackTimezones.push({
-          uuid: Math.random().toString(36).substring(2, 9),
-          id,
-          name: parts[0] || "TZ",
-          fullName: parts.join(' '),
-          offset: "+00:00",
-          country: parts.slice(1).join(' ') || "Unknown"
-        });
-      }
-      if (a.length > 1) {
-        const id = a[1];
-        const parts = id.split('_');
-        fallbackTimezones.push({
-          uuid: Math.random().toString(36).substring(2, 9),
-          id,
-          name: parts[0] || "TZ",
-          fullName: parts.join(' '),
-          offset: "+00:00",
-          country: parts.slice(1).join(' ') || "Unknown"
-        });
-      }
-      // Add more elements as needed, up to 10
-      // This pattern can be expanded for all 10 potential elements
+      // Update state
+      setTimeZones(filtered);
       
-      return fallbackTimezones;
-    }
-  };
+      // Update URL after state update
+      setTimeout(() => {
+        if (isClient) {
+          const newSlug = generateSlugStructure(filtered.map(tz => tz.id));
+          
+          if (filtered.length === 0) {
+            pushWithQueryParams('/converter');
+          } else if (newSlug !== slug) {
+            pushWithQueryParams(`/converter/${newSlug}`);
+          }
+        }
+        
+        // Cleanup tracking
+        removingCardsRef.current.delete(uuid);
+      }, 200);
+    }, 100);
+  }, [setTimeZones, timeZones, isClient, generateSlugStructure, pushWithQueryParams, slug]);
 
+  // Initial data loading - optimized to prevent unnecessary loads
   useEffect(() => {
-    if (!slug) return;
+    if (!slug || initialLoadDoneRef.current) return;
 
     const fetchData = async () => {
       try {
         setSlug(slug);
         const splitSlug = getValuesFromSlug(slug);
         
-        // Limit to maximum 10 timezones
-        const limitedSlug = splitSlug.slice(0, 10);
+        // Skip if no valid slug parts
+        if (!splitSlug.length) return;
         
-        // If we're limiting the timezones, show a toast notification
+        // Limit to maximum 10 timezones
+        const limitedSlug = splitSlug.slice(0, MAX_TIMEZONES);
+        
+        // Notify if we limited the timezones
         if (limitedSlug.length < splitSlug.length) {
           toast.warning("Maximum of 10 time zones allowed", {
             description: "Only the first 10 time zones have been added."
           });
         }
         
-        // Don't continue if we have no timezone codes
-        if (limitedSlug.length === 0) return;
-        
+        // Fetch timezone data
         const validTimeZones = await getURLTimeZones(limitedSlug);
         
-        // Only update state if we have valid timezones
-        if (validTimeZones && validTimeZones.length > 0) {
+        // Update state if we have valid data
+        if (validTimeZones?.length) {
           setTimeZones(validTimeZones);
-          
-          // Wait for timeZones to be set, then sync the URL once
-          setTimeout(() => {
-            if (isClient && validTimeZones.length > 0) {
-              // This ensures URL is correct after initial load
-              updateURL();
-            }
-          }, 500);
+          lastSlugRef.current = slug;
+          initialLoadDoneRef.current = true;
         }
       } catch (error) {
-        console.error("Error in fetchData:", error);
+        console.error("Error loading timezones:", error);
       }
     };
 
     fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug, setSlug]);
+  }, [slug, setSlug, getValuesFromSlug, setTimeZones]);
 
-  // Modified to prevent unwanted redirects
-  useEffect(() => {
-    // Skip completely on the server side
-    if (!isClient) return; 
-    
-    // Only handle the redirect to home page case
-    if (timeZones.length === 0 && slug === "") {
-      pushWithQueryParams("/converter");
-      return;
-    }
-    
-    // Skip URL updates entirely for most cases to prevent flickering
-    // We'll only update URLs when:
-    // 1. User manually removes a timezone (handled by removeTimeZone)
-    // 2. User completes a drag and drop (handled by handleDrop)
-    // 3. Initial load is complete
-    
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeZones.length === 0, isClient]); // Only depend on if timezones are empty
-
-  // Watch for timezone count changes to ensure URL stays in sync
-  // but only update on significant changes to prevent flickering
-  const prevTimeZoneCountRef = useRef(timeZones.length);
+  // Only redirect to home when necessary (empty timezones and not loading)
   useEffect(() => {
     if (!isClient) return;
     
-    // Skip minor array changes during normal usage
-    if (Math.abs(timeZones.length - prevTimeZoneCountRef.current) >= 1) {
-      // If there's been a significant change in timezone count
-      // (like adding a new timezone), update the URL
-      prevTimeZoneCountRef.current = timeZones.length;
-      
-      // Add a small delay to avoid multiple updates when adding multiple timezones
-      setTimeout(() => {
-        updateURL();
-      }, 1000);
+    // Only redirect if we have no timezones and slug is empty
+    if (timeZones.length === 0 && slug === "" && initialLoadDoneRef.current) {
+      pushWithQueryParams("/converter");
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeZones.length, isClient]);
+  }, [timeZones.length === 0, isClient, slug, pushWithQueryParams]);
 
-  // Memoize the TimeCard components to prevent unnecessary re-renders
+  // Memoize TimeCard components to prevent unnecessary renders
   const memoizedTimeCards = useMemo(() => {
-    return isClient ? timeZones.map((tz, index) => (
+    if (!isClient) return null;
+    
+    return timeZones.map((tz, index) => (
       <TimeCard
         currentDate={currentDate}
         handleTimeChange={handleTimeChange}
@@ -473,7 +363,7 @@ function TimeZoneApp({ slug }: { slug: string }) {
         onDragEnd={handleDragEnd}
         onDrop={handleDrop}
       />
-    )) : null;
+    ));
   }, [
     isClient,
     timeZones,
@@ -486,6 +376,49 @@ function TimeZoneApp({ slug }: { slug: string }) {
     handleDragEnd,
     handleDrop
   ]);
+
+  const getURLTimeZones = async (a: string[]) => {
+    if (!a.length) return [];
+    
+    try {
+      const allCountries = await getTimezones(a);
+      return allCountries;
+    } catch (error) {
+      console.error("Error fetching timezones:", error);
+      // Create fallback timezones directly without any loops
+      const fallbackTimezones: TimeZone[] = [];
+      
+      // Process the first timezone if exists
+      if (a.length > 0) {
+        const id = a[0];
+        const parts = id.split('_');
+        fallbackTimezones.push({
+          uuid: Math.random().toString(36).substr(2, 9),
+          id,
+          name: parts[0] || "TZ",
+          fullName: parts.join(' '),
+          offset: "+00:00",
+          country: parts.slice(1).join(' ') || "Unknown"
+        });
+      }
+      
+      // Process the second timezone if exists
+      if (a.length > 1) {
+        const id = a[1];
+        const parts = id.split('_');
+        fallbackTimezones.push({
+          uuid: Math.random().toString(36).substr(2, 9),
+          id,
+          name: parts[0] || "TZ",
+          fullName: parts.join(' '),
+          offset: "+00:00",
+          country: parts.slice(1).join(' ') || "Unknown"
+        });
+      }
+      
+      return fallbackTimezones;
+    }
+  };
 
   return <>{memoizedTimeCards}</>;
 }
