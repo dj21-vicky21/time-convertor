@@ -113,14 +113,17 @@ function TimeZoneApp({ slug }: { slug: string }) {
     return `${encodeURIComponent(values[0])}-to-${values.slice(1).map(encodeURIComponent).join("-")}`;
   }, []);
 
-  // Optimized URL update function
-  const updateURL = useCallback(() => {
+  // Optimized URL update function with improved slug handling
+  const updateURL = useCallback((tzArray?: TimeZone[]) => {
     if (!isClient) return;
     
-    // Skip if no timezones
-    if (!timeZones.length) return;
+    // Use passed array or current state
+    const zonesToUse = tzArray || timeZones;
     
-    const formattedSlug = generateSlugStructure(timeZones.map(tz => tz.id));
+    // Skip if no timezones
+    if (!zonesToUse.length) return;
+    
+    const formattedSlug = generateSlugStructure(zonesToUse.map(tz => tz.id));
     
     // Only update if different from current slug
     if (formattedSlug && formattedSlug !== lastSlugRef.current) {
@@ -218,13 +221,13 @@ function TimeZoneApp({ slug }: { slug: string }) {
       });
     }
     
-    // Update state
+    // Update state with the new order
     setTimeZones(newTimeZones);
     
-    // Update URL after state update is applied
+    // Force URL update with the new timezone order
     setTimeout(() => {
-      updateURL();
-    }, 100);
+      updateURL(newTimeZones);
+    }, 200);
   }, [draggedIndex, setTimeZones, updateURL]);
 
   const handleDragEnd = useCallback(() => {
@@ -245,15 +248,21 @@ function TimeZoneApp({ slug }: { slug: string }) {
       });
     }
     
+    // Apply the updated order from our ref to the state
+    const updatedTimeZones = [...timeZonesRef.current];
+    setTimeZones(updatedTimeZones);
+    
     // Clear drag drop references
     dragDropRef.current = {
       draggingElement: null,
       cards: null,
     };
     
-    // Apply the updated order from our ref to the state
-    setTimeZones([...timeZonesRef.current]);
-  }, [setTimeZones]);
+    // Also make sure URL is updated with the final order
+    setTimeout(() => {
+      updateURL(updatedTimeZones);
+    }, 200);
+  }, [setTimeZones, updateURL]);
 
   // Optimized timezone removal
   const removeTimeZone = useCallback((uuid: string) => {
@@ -281,12 +290,10 @@ function TimeZoneApp({ slug }: { slug: string }) {
       // Update URL after state update
       setTimeout(() => {
         if (isClient) {
-          const newSlug = generateSlugStructure(filtered.map(tz => tz.id));
-          
           if (filtered.length === 0) {
             pushWithQueryParams('/converter');
-          } else if (newSlug !== slug) {
-            pushWithQueryParams(`/converter/${newSlug}`);
+          } else {
+            updateURL(filtered);
           }
         }
         
@@ -294,7 +301,7 @@ function TimeZoneApp({ slug }: { slug: string }) {
         removingCardsRef.current.delete(uuid);
       }, 200);
     }, 100);
-  }, [setTimeZones, timeZones, isClient, generateSlugStructure, pushWithQueryParams, slug]);
+  }, [setTimeZones, timeZones, isClient, updateURL, pushWithQueryParams]);
 
   // Initial data loading - optimized to prevent unnecessary loads
   useEffect(() => {
@@ -324,8 +331,13 @@ function TimeZoneApp({ slug }: { slug: string }) {
         // Update state if we have valid data
         if (validTimeZones?.length) {
           setTimeZones(validTimeZones);
-          lastSlugRef.current = slug;
+          // Set initial load done BEFORE updating URL
           initialLoadDoneRef.current = true;
+          
+          // Ensure URL is updated properly with the loaded data
+          setTimeout(() => {
+            updateURL(validTimeZones);
+          }, 100);
         }
       } catch (error) {
         console.error("Error loading timezones:", error);
@@ -333,7 +345,7 @@ function TimeZoneApp({ slug }: { slug: string }) {
     };
 
     fetchData();
-  }, [slug, setSlug, getValuesFromSlug, setTimeZones]);
+  }, [slug, setSlug, getValuesFromSlug, setTimeZones, updateURL]);
 
   // Only redirect to home when necessary (empty timezones and not loading)
   useEffect(() => {
