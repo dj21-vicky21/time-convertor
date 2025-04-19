@@ -26,6 +26,13 @@ function TimeZoneApp({ slug }: { slug: string }) {
   // Reference to store timeZones order separately from state to prevent re-renders
   const timeZonesRef = useRef<TimeZone[]>([]);
   
+  // Refs for URL update debouncing
+  const urlUpdateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastSlugRef = useRef<string>(slug);
+  
+  // Track card UUIDs that are currently being removed to prevent duplicate removals
+  const removingCardsRef = useRef<Set<string>>(new Set());
+  
   // Update ref when timeZones changes
   useEffect(() => {
     timeZonesRef.current = timeZones;
@@ -49,7 +56,69 @@ function TimeZoneApp({ slug }: { slug: string }) {
 
   useEffect(() => {
     setIsClient(true);
+    
+    // Cleanup timeout on unmount
+    return () => {
+      if (urlUpdateTimeoutRef.current) {
+        clearTimeout(urlUpdateTimeoutRef.current);
+      }
+    };
   }, []);
+
+  // Memoize these pure functions
+  const getValuesFromSlug = useCallback((slug: string) => {
+    try {
+      // Decode URL-encoded characters (like %20 for spaces)
+      let decodedSlug;
+      try {
+        decodedSlug = decodeURIComponent(slug);
+      } catch (e) {
+        console.error("Error decoding slug:", e);
+        decodedSlug = slug; // Fall back to raw slug if decoding fails
+      }
+      
+      const parts = decodedSlug.split("-").filter((part) => part.length > 0);
+
+      // Return empty array if no valid parts
+      if (parts.length === 0) return [];
+
+      // Only return [firstValue] if "to" doesn't appear right after it
+      if (parts.length < 2 || parts[1] !== "to") {
+        return [parts[0]];
+      }
+
+      // If "to" appears right after first value, return all non-"to" values
+      return parts.filter(
+        (part, index) => part !== "to" && (index === 0 || index > 1)
+      );
+    } catch (error) {
+      console.error("Error in getValuesFromSlug:", error);
+      // Return a safe fallback
+      return [];
+    }
+  }, []);
+
+  const generateSlugStructure = useCallback((values: string[]) => {
+    // Filter out empty values
+    const filtered = values.filter((v) => v && v.length > 0);
+
+    if (filtered.length === 0) return "";
+    if (filtered.length === 1) return encodeURIComponent(filtered[0]);
+
+    // First element + "-to-" + remaining elements joined with "-", with URL encoding
+    return `${encodeURIComponent(filtered[0])}-to-${filtered.slice(1).map(v => encodeURIComponent(v)).join("-")}`;
+  }, []);
+
+  // Create a manual URL update function - defined BEFORE it's used
+  const updateURL = useCallback(() => {
+    if (!isClient) return;
+    const formattedSlug = generateSlugStructure(timeZones.map((tz) => tz.id));
+    if (formattedSlug && formattedSlug !== slug) {
+      // Directly update without debounce since this is explicitly called
+      lastSlugRef.current = formattedSlug;
+      pushWithQueryParams(`/converter/${formattedSlug}`);
+    }
+  }, [isClient, generateSlugStructure, timeZones, slug, pushWithQueryParams]);
 
   // Memoize these functions to prevent recreating on every render
   const handleTimeChange = useCallback((newDate: Date) => {
@@ -57,22 +126,70 @@ function TimeZoneApp({ slug }: { slug: string }) {
   }, [setCurrentDate]);
 
   const removeTimeZone = useCallback((uuid: string) => {
+    // Check if this card is already being removed
+    if (removingCardsRef.current.has(uuid)) {
+      return; // Skip if already in process of being removed
+    }
+    
+    // Mark this card as being removed
+    removingCardsRef.current.add(uuid);
+    
+    // First update our internal reference to prevent any sync issues
+    timeZonesRef.current = timeZonesRef.current.filter((tz) => tz.uuid !== uuid);
+    
     // Add visual feedback for removal
     const cardToRemove = document.querySelector(`[data-uuid="${uuid}"]`);
     if (cardToRemove) {
       cardToRemove.classList.add('removing');
       
-      // Short delay for animation
+      // Short delay for animation, then remove from state
       setTimeout(() => {
-        const filterZones = timeZones.filter((tz) => tz.uuid !== uuid);
-        setTimeZones(filterZones);
+        // Filter out the timezone to remove
+        const filtered = timeZones.filter((tz: TimeZone) => tz.uuid !== uuid);
+        // Update state with the filtered array
+        setTimeZones(filtered);
+        
+        // Update URL only after state is fully updated
+        setTimeout(() => {
+          // Double check we're still on client
+          if (isClient) {
+            const newSlug = generateSlugStructure(filtered.map((tz: TimeZone) => tz.id));
+            // Only update if there's something to update and we're on client
+            if (newSlug !== slug) {
+              pushWithQueryParams(`/converter/${newSlug}`);
+            } else if (filtered.length === 0) {
+              // If we removed the last timezone, go to home page
+              pushWithQueryParams('/converter');
+            }
+          }
+          
+          // Remove from the tracking set once complete
+          removingCardsRef.current.delete(uuid);
+        }, 200);
       }, 100);
     } else {
-      // If element not found, just remove directly
-      const filterZones = timeZones.filter((tz) => tz.uuid !== uuid);
-      setTimeZones(filterZones);
+      // If element not found, use direct state update
+      const filtered = timeZones.filter((tz: TimeZone) => tz.uuid !== uuid);
+      setTimeZones(filtered);
+      
+      // Update URL after state update completes
+      setTimeout(() => {
+        if (isClient) {
+          if (filtered.length === 0) {
+            pushWithQueryParams('/converter');
+          } else {
+            const newSlug = generateSlugStructure(filtered.map((tz: TimeZone) => tz.id));
+            if (newSlug !== slug) {
+              pushWithQueryParams(`/converter/${newSlug}`);
+            }
+          }
+        }
+        
+        // Remove from the tracking set once complete
+        removingCardsRef.current.delete(uuid);
+      }, 200);
     }
-  }, [setTimeZones, timeZones]);
+  }, [setTimeZones, timeZones, isClient, generateSlugStructure, pushWithQueryParams, slug]);
 
   // Maximum number of timezones allowed
   const MAX_TIMEZONES = 10;
@@ -180,7 +297,12 @@ function TimeZoneApp({ slug }: { slug: string }) {
     
     // Update state
     setTimeZones(newTimeZones);
-  }, [draggedIndex, setTimeZones]);
+    
+    // Update URL after state update is applied
+    setTimeout(() => {
+      updateURL();
+    }, 100);
+  }, [draggedIndex, setTimeZones, updateURL]);
 
   const handleDragEnd = useCallback(() => {
     setDraggedIndex(null);
@@ -209,50 +331,6 @@ function TimeZoneApp({ slug }: { slug: string }) {
     // Apply the updated order from our ref to the state
     setTimeZones([...timeZonesRef.current]);
   }, [setTimeZones]);
-
-  // Memoize these pure functions
-  const getValuesFromSlug = useCallback((slug: string) => {
-    try {
-      // Decode URL-encoded characters (like %20 for spaces)
-      let decodedSlug;
-      try {
-        decodedSlug = decodeURIComponent(slug);
-      } catch (e) {
-        console.error("Error decoding slug:", e);
-        decodedSlug = slug; // Fall back to raw slug if decoding fails
-      }
-      
-      const parts = decodedSlug.split("-").filter((part) => part.length > 0);
-
-      // Return empty array if no valid parts
-      if (parts.length === 0) return [];
-
-      // Only return [firstValue] if "to" doesn't appear right after it
-      if (parts.length < 2 || parts[1] !== "to") {
-        return [parts[0]];
-      }
-
-      // If "to" appears right after first value, return all non-"to" values
-      return parts.filter(
-        (part, index) => part !== "to" && (index === 0 || index > 1)
-      );
-    } catch (error) {
-      console.error("Error in getValuesFromSlug:", error);
-      // Return a safe fallback
-      return [];
-    }
-  }, []);
-
-  const generateSlugStructure = useCallback((values: string[]) => {
-    // Filter out empty values
-    const filtered = values.filter((v) => v && v.length > 0);
-
-    if (filtered.length === 0) return "";
-    if (filtered.length === 1) return encodeURIComponent(filtered[0]);
-
-    // First element + "-to-" + remaining elements joined with "-", with URL encoding
-    return `${encodeURIComponent(filtered[0])}-to-${filtered.slice(1).map(v => encodeURIComponent(v)).join("-")}`;
-  }, []);
 
   const getURLTimeZones = async (a: string[]) => {
     try {
@@ -321,6 +399,14 @@ function TimeZoneApp({ slug }: { slug: string }) {
         // Only update state if we have valid timezones
         if (validTimeZones && validTimeZones.length > 0) {
           setTimeZones(validTimeZones);
+          
+          // Wait for timeZones to be set, then sync the URL once
+          setTimeout(() => {
+            if (isClient && validTimeZones.length > 0) {
+              // This ensures URL is correct after initial load
+              updateURL();
+            }
+          }, 500);
         }
       } catch (error) {
         console.error("Error in fetchData:", error);
@@ -333,27 +419,43 @@ function TimeZoneApp({ slug }: { slug: string }) {
 
   // Modified to prevent unwanted redirects
   useEffect(() => {
-    // Don't redirect if we're on initial render or no timezones
+    // Skip completely on the server side
     if (!isClient) return; 
     
-    // Prevent redirecting away from the current page on initial load
-    // Only redirect to /converter if we have no timezones AND we're not on initial render
+    // Only handle the redirect to home page case
     if (timeZones.length === 0 && slug === "") {
       pushWithQueryParams("/converter");
       return;
     }
     
-    // Don't update URL if we have timezones but are still processing the initial slug
-    if (timeZones.length > 0) {
-      const formattedSlug = generateSlugStructure(timeZones.map((tz) => tz.id));
-      // Only push if the slug has actually changed
-      if (formattedSlug && formattedSlug !== slug && isClient) {
-        pushWithQueryParams(`/converter/${formattedSlug}`);
-      }
-    }
+    // Skip URL updates entirely for most cases to prevent flickering
+    // We'll only update URLs when:
+    // 1. User manually removes a timezone (handled by removeTimeZone)
+    // 2. User completes a drag and drop (handled by handleDrop)
+    // 3. Initial load is complete
     
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeZones, pushWithQueryParams, isClient]);
+  }, [timeZones.length === 0, isClient]); // Only depend on if timezones are empty
+
+  // Watch for timezone count changes to ensure URL stays in sync
+  // but only update on significant changes to prevent flickering
+  const prevTimeZoneCountRef = useRef(timeZones.length);
+  useEffect(() => {
+    if (!isClient) return;
+    
+    // Skip minor array changes during normal usage
+    if (Math.abs(timeZones.length - prevTimeZoneCountRef.current) >= 1) {
+      // If there's been a significant change in timezone count
+      // (like adding a new timezone), update the URL
+      prevTimeZoneCountRef.current = timeZones.length;
+      
+      // Add a small delay to avoid multiple updates when adding multiple timezones
+      setTimeout(() => {
+        updateURL();
+      }, 1000);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeZones.length, isClient]);
 
   // Memoize the TimeCard components to prevent unnecessary re-renders
   const memoizedTimeCards = useMemo(() => {
