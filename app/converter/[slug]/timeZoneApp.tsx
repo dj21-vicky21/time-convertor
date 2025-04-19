@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import TimeCard from "@/components/card";
 import { useAppStore } from "@/store/appStore";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { getTimezones } from "@/actions/getTimeZone";
 import { toast } from "sonner";
 import { TimeZone } from "@/lib/types";
@@ -21,6 +21,7 @@ function TimeZoneApp({ slug }: { slug: string }) {
   const [isClient, setIsClient] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const router = useRouter();
+  const searchParams = useSearchParams();
   
   // Reference to store timeZones order separately from state to prevent re-renders
   const timeZonesRef = useRef<TimeZone[]>([]);
@@ -33,81 +34,22 @@ function TimeZoneApp({ slug }: { slug: string }) {
   // Helper function to preserve query parameters
   const pushWithQueryParams = useCallback((path: string) => {
     // Get current query params
-    const params = new URLSearchParams();
+    const params = new URLSearchParams(searchParams.toString());
     
-    // Only add parameters when they differ from defaults
-    // Default is24Hour is false (12h format)
-    if (is24Hour) {
-      params.set('is24Hour', 'true');
-    }
+    // Make sure we have the latest values
+    params.set('is24Hour', is24Hour.toString());
+    params.set('viewMode', viewMode);
     
-    // Default viewMode is 'list'
-    if (viewMode !== 'list') {
-      params.set('viewMode', viewMode);
-    }
-    
-    // Create the new URL with query parameters only if not default
+    // Create the new URL with query parameters
     const newUrl = params.toString() ? `${path}?${params.toString()}` : path;
     
     // Navigate
     router.push(newUrl);
-  }, [router, is24Hour, viewMode]);
+  }, [router, searchParams, is24Hour, viewMode]);
 
-  // Set up client-side handling
   useEffect(() => {
     setIsClient(true);
-    
-    // Only run URL parameter handling on the client
-    if (typeof window !== 'undefined') {
-      // Parse the URL to extract query parameters if present
-      const urlParams = new URL(window.location.href).searchParams;
-      
-      // Set is24Hour from URL or default to false
-      const is24HourParam = urlParams.get('is24Hour');
-      if (is24HourParam === 'true') {
-        useAppStore.setState({ is24Hour: true });
-      } else if (is24HourParam === null && window.location.search === '') {
-        // Only reset to default if no parameters were provided
-        useAppStore.setState({ is24Hour: false });
-      }
-      
-      // Set viewMode from URL or default to 'list'
-      const viewModeParam = urlParams.get('viewMode');
-      if (viewModeParam === 'grid') {
-        useAppStore.setState({ viewMode: 'grid' });
-      } else if (viewModeParam === null && window.location.search === '') {
-        // Only reset to default if no parameters were provided
-        useAppStore.setState({ viewMode: 'list' });
-      }
-    }
   }, []);
-
-  useEffect(() => {
-    if (!slug) return;
-
-    const fetchData = async () => {
-      setSlug(slug);
-      const splitSlug = getValuesFromSlug(slug);
-      
-      // Limit to maximum 10 timezones
-      const limitedSlug = splitSlug.slice(0, 10);
-      
-      // If we're limiting the timezones, show a toast notification
-      if (limitedSlug.length < splitSlug.length) {
-        toast.warning("Maximum of 10 time zones allowed", {
-          description: "Only the first 10 time zones have been added."
-        });
-      }
-      
-      const validTimeZones = await getURLTimeZones(limitedSlug);
-      setTimeZones(validTimeZones);
-      
-      if (!limitedSlug.length) return;
-    };
-
-    fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [slug, setSlug]);
 
   // Memoize these functions to prevent recreating on every render
   const handleTimeChange = useCallback((newDate: Date) => {
@@ -304,6 +246,33 @@ function TimeZoneApp({ slug }: { slug: string }) {
     const allCountries = await getTimezones(a);
     return allCountries;
   };
+
+  useEffect(() => {
+    if (!slug) return;
+
+    const fetchData = async () => {
+      setSlug(slug);
+      const splitSlug = getValuesFromSlug(slug);
+      
+      // Limit to maximum 10 timezones
+      const limitedSlug = splitSlug.slice(0, 10);
+      
+      // If we're limiting the timezones, show a toast notification
+      if (limitedSlug.length < splitSlug.length) {
+        toast.warning("Maximum of 10 time zones allowed", {
+          description: "Only the first 10 time zones have been added."
+        });
+      }
+      
+      const validTimeZones = await getURLTimeZones(limitedSlug);
+      setTimeZones(validTimeZones);
+      
+      if (!limitedSlug.length) return;
+    };
+
+    fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug, setSlug]);
 
   useEffect(() => {
     if (timeZones.length === 0) {
