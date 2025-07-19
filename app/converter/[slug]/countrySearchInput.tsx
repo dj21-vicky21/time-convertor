@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAppStore } from "@/store/appStore";
 import { useDebounce } from '@/hooks/useDebounce';
 import { toast } from "sonner";
+import { getTimezones } from "@/actions/getTimeZone";
 
 type TimezoneInfo = {
   abbreviation: string;
@@ -22,7 +23,7 @@ type CountryWithSearchIndex = ICountry[] & {
 };
 
 export default function CountrySearchInput() {
-  const { slug, is24Hour, viewMode, timeZones } = useAppStore();
+  const { slug, is24Hour, viewMode, timeZones, setTimeZones } = useAppStore();
   const [inputText, setInputText] = useState("");
   const debouncedInputText = useDebounce(inputText, 300);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -105,22 +106,6 @@ export default function CountrySearchInput() {
       }
     };
   }, [maxLimitReached, showWarningWithTimeout]);
-
-  // Helper function to navigate with query params
-  const navigateWithParams = useCallback((path: string) => {
-    // Get current query params
-    const params = new URLSearchParams(searchParams.toString());
-    
-    // Ensure we have latest values
-    params.set('is24Hour', is24Hour.toString());
-    params.set('viewMode', viewMode);
-    
-    // Create URL with params
-    const newUrl = params.toString() ? `${path}?${params.toString()}` : path;
-    
-    // Navigate
-    router.push(newUrl);
-  }, [router, searchParams, is24Hour, viewMode]);
 
   // Get all countries once and memoize
   const allCountries = useMemo(() => {
@@ -281,14 +266,32 @@ export default function CountrySearchInput() {
       isoSet.add(idx);
       index.set(isoLower, isoSet);
       
-      // Index timezone info
+      // Index timezone info - now handling all timezones in the array
       country.timezones?.forEach(tz => {
+        // Index abbreviation
         if (tz.abbreviation) {
           const abbr = tz.abbreviation.toLowerCase();
           const abbrSet = index.get(abbr) || new Set();
           abbrSet.add(idx);
           index.set(abbr, abbrSet);
         }
+
+        // Index zoneName (e.g., "Asia/Kolkata")
+        if (tz.zoneName) {
+          const zoneNameLower = tz.zoneName.toLowerCase();
+          // Index full zoneName
+          const zoneSet = index.get(zoneNameLower) || new Set();
+          zoneSet.add(idx);
+          index.set(zoneNameLower, zoneSet);
+          // Index parts of zoneName (e.g., "asia", "kolkata")
+          zoneNameLower.split('/').forEach(part => {
+            const partSet = index.get(part) || new Set();
+            partSet.add(idx);
+            index.set(part, partSet);
+          });
+        }
+
+        // Index tzName
         if (tz.tzName) {
           const tzNameLower = tz.tzName.toLowerCase();
           tzNameLower.split(' ').forEach(word => {
@@ -334,34 +337,48 @@ export default function CountrySearchInput() {
     // Get matching countries and sort them
     const matches = commonMatches.map(idx => allCountries[idx])
       .sort((a, b) => {
-        const searchTerm = debouncedInputText.toUpperCase();
+        const searchTerm = debouncedInputText.toLowerCase();
         
-        // Exact match on timezone abbreviation gets highest priority
-        const aTimezoneExact = a.timezones?.some(tz => tz.abbreviation === searchTerm);
-        const bTimezoneExact = b.timezones?.some(tz => tz.abbreviation === searchTerm);
+        // Exact match on zoneName gets highest priority
+        const aZoneExact = a.timezones?.some(tz => tz.zoneName?.toLowerCase() === searchTerm);
+        const bZoneExact = b.timezones?.some(tz => tz.zoneName?.toLowerCase() === searchTerm);
+        if (aZoneExact !== bZoneExact) return aZoneExact ? -1 : 1;
+
+        // Exact match on timezone abbreviation gets next priority
+        const aTimezoneExact = a.timezones?.some(tz => tz.abbreviation?.toLowerCase() === searchTerm);
+        const bTimezoneExact = b.timezones?.some(tz => tz.abbreviation?.toLowerCase() === searchTerm);
         if (aTimezoneExact !== bTimezoneExact) return aTimezoneExact ? -1 : 1;
 
         // Exact match on name gets next priority
-        const aNameExact = a.name.toLowerCase() === debouncedInputText;
-        const bNameExact = b.name.toLowerCase() === debouncedInputText;
+        const aNameExact = a.name.toLowerCase() === searchTerm;
+        const bNameExact = b.name.toLowerCase() === searchTerm;
         if (aNameExact !== bNameExact) return aNameExact ? -1 : 1;
+
+        // Starts with zoneName gets next priority
+        const aZoneStarts = a.timezones?.some(tz => 
+          tz.zoneName?.toLowerCase().startsWith(searchTerm)
+        );
+        const bZoneStarts = b.timezones?.some(tz => 
+          tz.zoneName?.toLowerCase().startsWith(searchTerm)
+        );
+        if (aZoneStarts !== bZoneStarts) return aZoneStarts ? -1 : 1;
 
         // Starts with timezone abbreviation gets next priority
         const aTimezoneStarts = a.timezones?.some(tz => 
-          tz.abbreviation?.toLowerCase().startsWith(debouncedInputText.toLowerCase())
+          tz.abbreviation?.toLowerCase().startsWith(searchTerm)
         );
         const bTimezoneStarts = b.timezones?.some(tz => 
-          tz.abbreviation?.toLowerCase().startsWith(debouncedInputText.toLowerCase())
+          tz.abbreviation?.toLowerCase().startsWith(searchTerm)
         );
         if (aTimezoneStarts !== bTimezoneStarts) return aTimezoneStarts ? -1 : 1;
         
         // Starts with name gets next priority
-        const aNameStarts = a.name.toLowerCase().startsWith(debouncedInputText);
-        const bNameStarts = b.name.toLowerCase().startsWith(debouncedInputText);
+        const aNameStarts = a.name.toLowerCase().startsWith(searchTerm);
+        const bNameStarts = b.name.toLowerCase().startsWith(searchTerm);
         if (aNameStarts !== bNameStarts) return aNameStarts ? -1 : 1;
         
         // Default to alphabetical by name
-      return a.name.localeCompare(b.name);
+        return a.name.localeCompare(b.name);
     });
     
     return matches;
@@ -491,7 +508,7 @@ export default function CountrySearchInput() {
   };
 
   // Memoize URL handling functions
-  const handleItemClick = useCallback((country: ICountry, e: React.MouseEvent) => {
+  const handleItemClick = useCallback(async (country: ICountry, e: React.MouseEvent) => {
     // Prevent the dropdown from closing immediately and stop event bubbling
     e.preventDefault();
     e.stopPropagation();
@@ -527,22 +544,35 @@ export default function CountrySearchInput() {
             : `${slug}-to-${countryCode}`
           : countryCode
       );
+
+      // Get the new timezone data
+      const newTimezone = await getTimezones([countryCode]);
+      if (!newTimezone?.length) {
+        throw new Error('Failed to get timezone data');
+      }
+
+      // Update state with new timezone
+      const updatedTimeZones = [...timeZones, newTimezone[0]];
+      setTimeZones(updatedTimeZones);
       
       // Close dropdown immediately
       setIsDropdownOpen(false);
       setInputText("");
       
-      // Navigate with minimal delay
-      requestAnimationFrame(() => {
-        navigateWithParams(`/converter/${basePath}`);
-      });
+      // Update URL without navigation
+      const params = new URLSearchParams(searchParams.toString());
+      params.set('is24Hour', is24Hour.toString());
+      params.set('viewMode', viewMode);
+      const newUrl = `/converter/${basePath}${params.toString() ? `?${params.toString()}` : ''}`;
+      router.replace(newUrl, { scroll: false });
+
     } catch (error) {
       console.error('Error in handleItemClick:', error);
       toast.error('Error selecting time zone');
       setIsDropdownOpen(false);
     setInputText("");
     }
-  }, [timeZones.length, slug, navigateWithParams, showWarningWithTimeout]);
+  }, [timeZones, setTimeZones, slug, is24Hour, viewMode, searchParams, router, showWarningWithTimeout]);
 
   // Reference to maintain the dropdown
   const dropdownRef = useRef<HTMLDivElement>(null);

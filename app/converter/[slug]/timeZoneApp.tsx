@@ -313,17 +313,30 @@ function TimeZoneApp({ slug }: { slug: string }) {
       // Update URL after state update
       if (isClient) {
         if (filtered.length === 0) {
-          pushWithQueryParams('/converter');
+          // Update URL without navigation for empty state
+          const params = new URLSearchParams(searchParams.toString());
+          params.set('is24Hour', is24Hour.toString());
+          params.set('viewMode', viewMode);
+          const newUrl = `/converter${params.toString() ? `?${params.toString()}` : ''}`;
+          router.replace(newUrl, { scroll: false });
         } else {
-          // Use debounced update for better performance
-          debouncedUpdateURL(filtered);
+          // Create new slug from remaining timezones
+          const timezoneIds = filtered.map(tz => tz.id);
+          const formattedSlug = generateSlugStructure(timezoneIds);
+          
+          // Update URL without navigation
+          const params = new URLSearchParams(searchParams.toString());
+          params.set('is24Hour', is24Hour.toString());
+          params.set('viewMode', viewMode);
+          const newUrl = `/converter/${formattedSlug}${params.toString() ? `?${params.toString()}` : ''}`;
+          router.replace(newUrl, { scroll: false });
         }
       }
       
       // Cleanup tracking
       removingCardsRef.current.delete(uuid);
     }, 100);
-  }, [setTimeZones, timeZones, isClient, debouncedUpdateURL, pushWithQueryParams]);
+  }, [setTimeZones, timeZones, isClient, router, searchParams, is24Hour, viewMode, generateSlugStructure]);
 
   // Initial data loading - optimized to prevent unnecessary loads
   useEffect(() => {
