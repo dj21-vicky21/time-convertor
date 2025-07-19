@@ -7,7 +7,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAppStore } from "@/store/appStore";
 import { useDebounce } from '@/hooks/useDebounce';
 import { toast } from "sonner";
-import { getTimezones } from "@/actions/getTimeZone";
 
 type TimezoneInfo = {
   abbreviation: string;
@@ -535,6 +534,24 @@ export default function CountrySearchInput() {
       const timezone = country.timezones[0];
       const abbreviation = timezone.abbreviation || country.isoCode + "T";
       const countryCode = `${abbreviation}_${country.name}`;
+
+      // Create new timezone object directly
+      const newTimezone = {
+        uuid: crypto.randomUUID(),
+        id: countryCode,
+        name: abbreviation.toUpperCase(),
+        fullName: timezone.tzName || timezone.zoneName || `${abbreviation} (${country.name})`,
+        offset: getOffsetString(timezone.gmtOffset),
+        country: country.name
+      };
+
+      // Update state with new timezone
+      const updatedTimeZones = [...timeZones, newTimezone];
+      setTimeZones(updatedTimeZones);
+      
+      // Close dropdown immediately
+      setIsDropdownOpen(false);
+      setInputText("");
       
       // Build the path efficiently
       const basePath = encodeURIComponent(
@@ -544,20 +561,6 @@ export default function CountrySearchInput() {
             : `${slug}-to-${countryCode}`
           : countryCode
       );
-
-      // Get the new timezone data
-      const newTimezone = await getTimezones([countryCode]);
-      if (!newTimezone?.length) {
-        throw new Error('Failed to get timezone data');
-      }
-
-      // Update state with new timezone
-      const updatedTimeZones = [...timeZones, newTimezone[0]];
-      setTimeZones(updatedTimeZones);
-      
-      // Close dropdown immediately
-      setIsDropdownOpen(false);
-      setInputText("");
       
       // Update URL without navigation
       const params = new URLSearchParams(searchParams.toString());
@@ -570,9 +573,17 @@ export default function CountrySearchInput() {
       console.error('Error in handleItemClick:', error);
       toast.error('Error selecting time zone');
       setIsDropdownOpen(false);
-    setInputText("");
+      setInputText("");
     }
   }, [timeZones, setTimeZones, slug, is24Hour, viewMode, searchParams, router, showWarningWithTimeout]);
+
+  // Add the getOffsetString helper function at the top of the file after imports
+  const getOffsetString = (gmtOffset: number): string => {
+    const hours = Math.floor(gmtOffset / 3600);
+    const minutes = Math.abs(Math.floor((gmtOffset % 3600) / 60));
+    const sign = hours >= 0 ? "+" : "-";
+    return `${sign}${Math.abs(hours).toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}`;
+  };
 
   // Reference to maintain the dropdown
   const dropdownRef = useRef<HTMLDivElement>(null);
