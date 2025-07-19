@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense, useEffect, useState, useCallback } from "react";
+import React, { Suspense, useEffect, useState, useCallback, useRef } from "react";
 import {
   Clock,
   Calendar,
@@ -17,6 +17,7 @@ import { useAppStore } from "@/store/appStore";
 import CountrySearchInput from "./[slug]/countrySearchInput";
 import { toast } from "sonner";
 import { useSearchParams, usePathname, useRouter } from "next/navigation";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 function App({ children }: { children: React.ReactNode }) {
   const {
@@ -31,10 +32,29 @@ function App({ children }: { children: React.ReactNode }) {
   } = useAppStore();
   // const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
+  // Add ref for calendar container
+  const calendarRef = useRef<HTMLDivElement>(null);
 
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const router = useRouter();
+
+  // Add click outside handler for calendar
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (calendarRef.current && !calendarRef.current.contains(event.target as Node)) {
+        setShowDatePicker(false);
+      }
+    }
+
+    if (showDatePicker) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showDatePicker]);
 
   // Helper function to update URL params
   const updateQueryParams = useCallback((params: Record<string, string>) => {
@@ -115,86 +135,64 @@ function App({ children }: { children: React.ReactNode }) {
   // };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6 text-gray-700">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-background text-foreground">
+      <div className="max-w-7xl mx-auto p-6">
         {/* Header */}
         <div className="mb-6">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+          <h1 className="text-4xl font-bold mb-2">
             Time Zone Converter
           </h1>
-         <div className="flex items-center justify-between h-8">
-         <p className="text-lg text-gray-600">
-            Compare multiple time zones and plan global meetings with ease
-          </p>
-          {/* View Toggle and Add Button */}
-        <div className="hidden md:flex justify-end items-center">
-          <div className="flex gap-2">
-            {slug && (
-              <>
-                <Button
-                  variant={"outline"}
-                  onClick={() => toggleViewMode("list")}
-                  className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
-                    viewMode === "list"
-                      ? "bg-gray-900 text-white hover:bg-primary hover:text-white"
-                      : "bg-white text-gray-700 hover:text-black hover:bg-gray-100"
-                  }`}
-                >
-                  <List size={20} />
-                  List View
-                </Button>
-                <Button
-                  variant={"outline"}
-                  onClick={() => toggleViewMode("grid")}
-                  className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
-                    viewMode === "grid"
-                      ? "bg-gray-900 text-white hover:bg-primary hover:text-white"
-                      : "bg-white text-gray-700 hover:text-black hover:bg-gray-100"
-                  }`}
-                >
-                  <Grid size={20} />
-                  Grid View
-                </Button>
-              </>
-            )}
+          <div className="flex items-center justify-between h-8">
+            <p className="text-lg text-muted-foreground">
+              Compare multiple time zones and plan global meetings with ease
+            </p>
+            {/* View Toggle and Add Button */}
+            <div className="hidden md:flex justify-end items-center">
+              <div className="flex gap-2">
+                {slug && (
+                  <>
+                    <Button
+                      variant={viewMode === "list" ? "default" : "outline"}
+                      onClick={() => toggleViewMode("list")}
+                      className="gap-2"
+                    >
+                      <List size={20} />
+                      List View
+                    </Button>
+                    <Button
+                      variant={viewMode === "grid" ? "default" : "outline"}
+                      onClick={() => toggleViewMode("grid")}
+                      className="gap-2"
+                    >
+                      <Grid size={20} />
+                      Grid View
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
-
-          {/* <Button
-            variant={'outline'}
-            onClick={() => {
-              const newId = Math.max(...timeZones.map(tz => tz.id)) + 1;
-              setTimeZones([...timeZones, { id: newId, name: 'GMT', fullName: 'Greenwich Mean Time', offset: '+00:00' }]);
-            }}
-            className="px-4 py-2  rounded-lg flex items-center gap-2"
-          >
-            <Plus size={20} />
-            Add Time Zone
-          </Button> */}
         </div>
-         </div>
-        </div>
-
-        
 
         {/* Controls */}
-        <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
+        <div className="bg-card text-card-foreground rounded-xl shadow-sm p-4 mb-6 border">
           <div className="flex flex-wrap items-center justify-between gap-4">
             {/* Search Bar */}
             <div className="flex-grow max-w-md">
               <div className="relative">
                 <CountrySearchInput />
                 <Plus
-                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"
+                  className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground"
                   size={20}
                 />
                 {/* Timezone counter */}
                 <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center">
                   <span className={`text-xs px-2 py-0.5 rounded-full ${
                     timeZones.length >= 10 
-                      ? "bg-amber-100 text-amber-800" 
+                      ? "bg-destructive/10 text-destructive" 
                       : timeZones.length >= 7
-                      ? "bg-yellow-100 text-yellow-800"
-                      : "bg-gray-100 text-gray-600"
+                      ? "bg-warning/10 text-warning"
+                      : "bg-muted text-muted-foreground"
                   }`}>
                     {timeZones.length}/10
                   </span>
@@ -204,104 +202,73 @@ function App({ children }: { children: React.ReactNode }) {
 
             {/* Date Selection */}
             <div className="flex items-center gap-4 flex-wrap">
-              <div className="relative">
+              <div className="relative" ref={calendarRef}>
                 <Button
                   onClick={() => setShowDatePicker(!showDatePicker)}
-                  variant={"outline"}
-                  // className="px-4 py-2 border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50"
+                  variant="outline"
+                  className="gap-2"
                 >
                   <Calendar size={20} />
                   {format(currentDate, "dd/MM/yyyy")}
                 </Button>
                 {showDatePicker && (
-                  <div className="absolute top-full mt-2 z-10">
-                    <DatePicker
-                      selected={currentDate}
-                      onChange={(date) => {
-                        if (date) {
-                          setCurrentDate(date);
-                          setShowDatePicker(false);
-                        }
-                      }}
-                      inline
-                    />
+                  <div className="absolute top-full mt-2 z-50">
+                    <div className="p-1 bg-popover rounded-md border shadow-lg">
+                      <DatePicker
+                        selected={currentDate}
+                        onChange={(date) => {
+                          if (date) {
+                            setCurrentDate(date);
+                            setShowDatePicker(false);
+                          }
+                        }}
+                        inline
+                        showPopperArrow={false}
+                        calendarClassName="!border-0"
+                      />
+                    </div>
                   </div>
                 )}
               </div>
 
               <Button
                 onClick={resetToNow}
-                variant={"outline"}
-                // className="px-4 py-2 border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50"
+                variant="outline"
+                className="gap-2"
               >
                 <Clock size={20} />
                 Now
               </Button>
 
               <Button
-                variant={"outline"}
-                className="hidden md:flex"
+                variant="outline"
+                className="hidden md:flex gap-2"
                 onClick={() => {
-                  // Create a shareable URL with the current settings
                   const urlSearchParams = new URLSearchParams();
                   urlSearchParams.set('is24Hour', is24Hour.toString());
                   urlSearchParams.set('viewMode', viewMode);
-                  
-                  // Get the base URL (without any query parameters)
                   const baseUrl = `${window.location.origin}${pathname}`;
-                  
-                  // Construct the full URL
                   const shareableUrl = `${baseUrl}${urlSearchParams.toString() ? `?${urlSearchParams.toString()}` : ''}`;
-                  
-                  // Copy to clipboard
                   navigator.clipboard.writeText(shareableUrl);
-                  
-                  toast("Link copied to clipboard", {
-                    action: {
-                      label: "X",
-                      onClick: () => console.log("Undo"),
-                    },
-                  });
+                  toast("Link copied to clipboard");
                 }}
               >
                 <LinkIcon size={20} />
                 Save Link
               </Button>
 
-              {/* <Button
-                variant={"outline"}
-                className="hidden md:flex"
-                onClick={() => {
-                  navigator.clipboard.writeText(window.location.href);
-                  toast({
-                    title: "Link copied to clipboard",
-                    description: "You can share this link with others",
-                    duration: 2000,
-                    type: "success",
-                  });
-                }}
-                // className="px-4 py-2 border border-gray-300 rounded-lg flex items-center gap-2 hover:bg-gray-50"
-              >
-                <Share size={20} />
-                Share
-              </Button> */}
-
               <Button
-                variant={"outline"}
+                variant={is24Hour ? "default" : "outline"}
                 onClick={toggle24HourFormat}
-                className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
-                  is24Hour
-                    ? "bg-primary text-white hover:bg-primary hover:text-white"
-                    : "bg-white border border-gray-300"
-                }`}
+                className="gap-2"
               >
                 {is24Hour ? "24h" : "12h"}
               </Button>
+
+              <ThemeToggle />
             </div>
           </div>
         </div>
-
-        
 
         {/* Time Zones */}
         <div
@@ -311,17 +278,6 @@ function App({ children }: { children: React.ReactNode }) {
               : "md:w-3xl space-y-4 m-auto"
           }`}
         >
-          {/* {  timeZones.map((tz) => (
-            <TimeCard
-              currentDate={currentDate}
-              handleTimeChange={handleTimeChange}
-              is24Hour={is24Hour}
-              removeTimeZone={removeTimeZone}
-              tz={tz}
-              key={tz.id}
-            />
-          ))} */}
-
           {children}
         </div>
       </div>

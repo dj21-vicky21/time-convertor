@@ -76,6 +76,7 @@ function TimeCard({
   const [editableTime, setEditableTime] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [initialFocus, setInitialFocus] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -110,6 +111,7 @@ function TimeCard({
     setEditableTime(time);
     setIsEditing(true);
     setShowSuggestions(true);
+    setInitialFocus(true);
   };
 
   const convertToLocalTime = (date: Date, fromOffset: string): Date => {
@@ -187,9 +189,42 @@ function TimeCard({
         !suggestionsRef.current.contains(event.target as Node)
       ) {
         setShowSuggestions(false);
-        if (isEditing) {
-          handleTimeSubmit();
+        if (isEditing && editableTime.trim()) {
+          try {
+            let newDate: Date;
+            if (is24Hour) {
+              // Handle 24-hour format
+              const [hours, minutes] = editableTime.split(":").map(Number);
+              if (!isNaN(hours) && !isNaN(minutes) && hours >= 0 && hours < 24 && minutes >= 0 && minutes < 60) {
+                const tzDate = convertToTargetTime(currentDate, tz.offset);
+                tzDate.setHours(hours, minutes, 0, 0);
+                newDate = convertToLocalTime(tzDate, tz.offset);
+                handleTimeChange(newDate);
+              }
+            } else {
+              // Handle 12-hour format
+              try {
+                const parsedDate = parse(editableTime, "h:mm a", new Date());
+                if (!isNaN(parsedDate.getTime())) {
+                  const tzDate = convertToTargetTime(currentDate, tz.offset);
+                  tzDate.setHours(parsedDate.getHours(), parsedDate.getMinutes(), 0, 0);
+                  newDate = convertToLocalTime(tzDate, tz.offset);
+                  handleTimeChange(newDate);
+                }
+              } catch {
+                // If parsing fails, try to keep the current value
+                const tzDate = convertToTargetTime(currentDate, tz.offset);
+                setEditableTime(format(tzDate, is24Hour ? "HH:mm" : "h:mm a"));
+              }
+            }
+          } catch (error) {
+            // If there's an error, revert to the current time
+            console.error('Error setting time:', error);
+            const tzDate = convertToTargetTime(currentDate, tz.offset);
+            setEditableTime(format(tzDate, is24Hour ? "HH:mm" : "h:mm a"));
+          }
         }
+        setIsEditing(false);
       }
     };
 
@@ -197,12 +232,16 @@ function TimeCard({
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [isEditing]);
+  }, [isEditing, editableTime, currentDate, tz.offset, is24Hour, handleTimeChange, convertToTargetTime, convertToLocalTime]);
 
   useEffect(() => {
     if (isEditing && inputRef.current) {
       inputRef.current.focus();
-      inputRef.current.select();
+      // Only select all text on initial focus
+      if (initialFocus) {
+        inputRef.current.select();
+        setInitialFocus(false);
+      }
       
       // When editing starts, set up the suggestions dropdown
       if (showSuggestions && suggestionsRef.current) {
@@ -218,11 +257,12 @@ function TimeCard({
           });
           
           // Add selected class to the closest item
-          items[closestIndex].classList.add('bg-gray-100');
+          Array.from(items).forEach(item => item.classList.remove('bg-muted'));
+          items[closestIndex].classList.add('bg-muted');
         }
       }
     }
-  }, [isEditing, showSuggestions, editableTime, timeOptions, is24Hour]);
+  }, [isEditing, showSuggestions, editableTime, timeOptions, is24Hour, initialFocus]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setEditableTime(e.target.value);
@@ -233,8 +273,8 @@ function TimeCard({
   return (
     <div
       ref={cardRef}
-      className={`timezone-card bg-white rounded-xl shadow-sm p-6 transition-all relative hover:shadow-md ${
-        isAtMaxLimit ? 'border border-amber-200' : ''
+      className={`timezone-card bg-card text-card-foreground rounded-xl shadow-sm p-6 transition-all relative hover:shadow-md border ${
+        isAtMaxLimit ? 'border-destructive/50' : ''
       }`}
       draggable={false}
       onDragOver={(e) => onDragOver && onDragOver(e, index)}
@@ -246,25 +286,24 @@ function TimeCard({
         <div className="flex items-center justify-between pr-10 flex-wrap">
           <div className="flex items-center gap-4">
             <div
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors cursor-move drag-handle"
+              className="p-2 hover:bg-muted rounded-lg transition-colors cursor-move drag-handle"
               onDragStart={(e) => onDragStart && onDragStart(e, index)}
               onDragEnd={() => onDragEnd && onDragEnd()}
               draggable
             >
-              <GripVertical size={20} className="text-gray-400" />
+              <GripVertical size={20} className="text-muted-foreground" />
             </div>
-            <div className="">
+            <div>
               <h2 className="text-3xl font-bold">
                 {tz.name}{" "}
-                <span className="text-xs font-light">({tz.fullName})</span>
+                <span className="text-xs font-light text-muted-foreground">({tz.fullName})</span>
               </h2>
-              <p className="text-gray-500">GMT{tz.offset}</p>
+              <p className="text-muted-foreground">GMT{tz.offset}</p>
             </div>
-            <span className="text-lg text-gray-600"></span>
           </div>
           <div className="text-center ml-auto w-[140px] relative">
             <div className="h-10 box-border">
-              <div className="">
+              <div>
                 {isEditing ? (
                   <div className="relative">
                     <div className="flex items-center">
@@ -275,21 +314,20 @@ function TimeCard({
                         onChange={handleChange}
                         onFocus={() => setShowSuggestions(true)}
                         onKeyPress={(e) => e.key === "Enter" && handleTimeSubmit()}
-                        className="text-3xl font-bold text-center w-36 border-b-2 border-primary focus:outline-none"
+                        className="text-3xl font-bold text-center w-36 border-b-2 border-primary focus:outline-none bg-transparent"
                         autoFocus
                       />
-                     
                     </div>
                     
                     {showSuggestions && (
                       <div 
                         ref={suggestionsRef}
-                        className="absolute z-100 h-[110px] bg-white shadow-lg border rounded-md mt-1 py-1 w-full max-h-60 overflow-y-auto"
+                        className="absolute z-100 h-[110px] bg-popover text-popover-foreground shadow-lg border rounded-md mt-1 py-1 w-full max-h-60 overflow-y-auto"
                       >
                         {timeOptions.map((time, i) => (
                           <div
                             key={i}
-                            className="px-3 py-1 cursor-pointer hover:bg-gray-100 text-left"
+                            className="px-3 py-1 cursor-pointer hover:bg-muted/50 text-left transition-colors"
                             onClick={() => handleSelectSuggestion(time)}
                           >
                             {time}
@@ -308,16 +346,16 @@ function TimeCard({
                 )}
               </div>
             </div>
-            <div className="text-gray-500 mt-1">
+            <div className="text-muted-foreground mt-1">
               {format(tzDate, "EEE, MMM d")}
             </div>
           </div>
         </div>
         <Button
-          variant={"ghost"}
+          variant="ghost"
           onClick={() => removeTimeZone(tz.uuid)}
-          className={`absolute top-2 right-2 text-gray-400 hover:text-gray-600 ${
-            isAtMaxLimit ? 'animate-pulse bg-amber-50 text-amber-700 hover:bg-amber-100 hover:text-amber-800' : ''
+          className={`absolute top-2 right-2 text-muted-foreground hover:text-foreground ${
+            isAtMaxLimit ? 'animate-pulse bg-destructive/10 text-destructive hover:bg-destructive/20 hover:text-destructive' : ''
           }`}
           title={isAtMaxLimit ? "Remove to add more timezones" : "Remove timezone"}
         >

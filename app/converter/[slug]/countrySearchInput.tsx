@@ -16,6 +16,11 @@ type TimezoneInfo = {
   tzName: string;
 };
 
+// Add type for search index
+type CountryWithSearchIndex = ICountry[] & {
+  searchIndex?: Map<string, Set<number>>;
+};
+
 export default function CountrySearchInput() {
   const { slug, is24Hour, viewMode, timeZones } = useAppStore();
   const [inputText, setInputText] = useState("");
@@ -257,102 +262,147 @@ export default function CountrySearchInput() {
     }
   }, []);
 
+  // Add efficient search index
+  const createSearchIndex = (countries: ICountry[]) => {
+    const index = new Map<string, Set<number>>();
+    
+    countries.forEach((country, idx: number) => {
+      // Index country name
+      const nameLower = country.name.toLowerCase();
+      nameLower.split(' ').forEach(word => {
+        const set = index.get(word) || new Set();
+        set.add(idx);
+        index.set(word, set);
+      });
+      
+      // Index ISO code
+      const isoLower = country.isoCode.toLowerCase();
+      const isoSet = index.get(isoLower) || new Set();
+      isoSet.add(idx);
+      index.set(isoLower, isoSet);
+      
+      // Index timezone info
+      country.timezones?.forEach(tz => {
+        if (tz.abbreviation) {
+          const abbr = tz.abbreviation.toLowerCase();
+          const abbrSet = index.get(abbr) || new Set();
+          abbrSet.add(idx);
+          index.set(abbr, abbrSet);
+        }
+        if (tz.tzName) {
+          const tzNameLower = tz.tzName.toLowerCase();
+          tzNameLower.split(' ').forEach(word => {
+            const set = index.get(word) || new Set();
+            set.add(idx);
+            index.set(word, set);
+          });
+        }
+      });
+    });
+    
+    return index;
+  };
+
   // Filter and sort countries based on multiple criteria with priority
   const filteredResults = useMemo(() => {
     if (!debouncedInputText.trim()) return [];
-
-    const value = debouncedInputText.toLowerCase();
-
-    // First filter all possible matches
-    const filtered = allCountries.filter((country) => {
-      // Basic country info
-      const matchesName = country.name.toLowerCase().includes(value);
-      const matchesIsoCode = country.isoCode.toLowerCase().includes(value);
-      const matchesCurrency = country.currency?.toLowerCase().includes(value);
-      const matchesPhoneCode = country.phonecode?.toLowerCase().includes(value);
-
-      // Timezone info
-      const matchesTimezone = country.timezones?.some((tz) => {
-        return (
-          (tz.abbreviation && tz.abbreviation.toLowerCase().includes(value)) ||
-          (tz.zoneName && tz.zoneName.toLowerCase().includes(value)) ||
-          (tz.tzName && tz.tzName.toLowerCase().includes(value))
-        );
-      });
-
-      return (
-        matchesName ||
-        matchesIsoCode ||
-        matchesCurrency ||
-        matchesPhoneCode ||
-        matchesTimezone
-      );
+    
+    const searchTerms = debouncedInputText.toLowerCase().split(' ').filter(Boolean);
+    if (searchTerms.length === 0) return [];
+    
+    // Create or get cached search index
+    const countriesWithIndex = allCountries as CountryWithSearchIndex;
+    const searchIndex = countriesWithIndex.searchIndex || (countriesWithIndex.searchIndex = createSearchIndex(allCountries));
+    
+    // Get matching country indices for each search term
+    const matchingSets = searchTerms.map(term => {
+      const matches = new Set<number>();
+      // Check for partial matches in the index
+      for (const [key, indices] of searchIndex.entries()) {
+        if (key.includes(term)) {
+          indices.forEach(idx => matches.add(idx));
+        }
+      }
+      return matches;
     });
+    
+    // Find intersection of all matching sets
+    const commonMatches = [...matchingSets[0]].filter(idx =>
+      matchingSets.every(set => set.has(idx))
+    );
+    
+    // Get matching countries and sort them
+    const matches = commonMatches.map(idx => allCountries[idx])
+      .sort((a, b) => {
+        const searchTerm = debouncedInputText.toUpperCase();
+        
+        // Exact match on timezone abbreviation gets highest priority
+        const aTimezoneExact = a.timezones?.some(tz => tz.abbreviation === searchTerm);
+        const bTimezoneExact = b.timezones?.some(tz => tz.abbreviation === searchTerm);
+        if (aTimezoneExact !== bTimezoneExact) return aTimezoneExact ? -1 : 1;
 
-    // Then sort by match priority
-    return filtered.sort((a, b) => {
-      // Exact match on name gets highest priority
-      const aNameExact = a.name.toLowerCase() === value;
-      const bNameExact = b.name.toLowerCase() === value;
-      if (aNameExact && !bNameExact) return -1;
-      if (!aNameExact && bNameExact) return 1;
+        // Exact match on name gets next priority
+        const aNameExact = a.name.toLowerCase() === debouncedInputText;
+        const bNameExact = b.name.toLowerCase() === debouncedInputText;
+        if (aNameExact !== bNameExact) return aNameExact ? -1 : 1;
 
-      // Exact match on ISO code
-      const aIsoExact = a.isoCode.toLowerCase() === value;
-      const bIsoExact = b.isoCode.toLowerCase() === value;
-      if (aIsoExact && !bIsoExact) return -1;
-      if (!aIsoExact && bIsoExact) return 1;
-
-      // Starts with input
-      const aNameStartsWith = a.name.toLowerCase().startsWith(value);
-      const bNameStartsWith = b.name.toLowerCase().startsWith(value);
-      if (aNameStartsWith && !bNameStartsWith) return -1;
-      if (!aNameStartsWith && bNameStartsWith) return 1;
-
-      // Exact match on currency
-      const aCurrencyExact = a.currency?.toLowerCase() === value;
-      const bCurrencyExact = b.currency?.toLowerCase() === value;
-      if (aCurrencyExact && !bCurrencyExact) return -1;
-      if (!aCurrencyExact && bCurrencyExact) return 1;
-
-      // Exact match on timezone
-      const aTzExact = a.timezones?.some(
-        (tz) =>
-          tz.abbreviation?.toLowerCase() === value ||
-          tz.zoneName?.toLowerCase() === value ||
-          tz.tzName?.toLowerCase() === value
-      );
-      const bTzExact = b.timezones?.some(
-        (tz) =>
-          tz.abbreviation?.toLowerCase() === value ||
-          tz.zoneName?.toLowerCase() === value ||
-          tz.tzName?.toLowerCase() === value
-      );
-      if (aTzExact && !bTzExact) return -1;
-      if (!aTzExact && bTzExact) return 1;
-
-      // Finally, sort by name
+        // Starts with timezone abbreviation gets next priority
+        const aTimezoneStarts = a.timezones?.some(tz => 
+          tz.abbreviation?.toLowerCase().startsWith(debouncedInputText.toLowerCase())
+        );
+        const bTimezoneStarts = b.timezones?.some(tz => 
+          tz.abbreviation?.toLowerCase().startsWith(debouncedInputText.toLowerCase())
+        );
+        if (aTimezoneStarts !== bTimezoneStarts) return aTimezoneStarts ? -1 : 1;
+        
+        // Starts with name gets next priority
+        const aNameStarts = a.name.toLowerCase().startsWith(debouncedInputText);
+        const bNameStarts = b.name.toLowerCase().startsWith(debouncedInputText);
+        if (aNameStarts !== bNameStarts) return aNameStarts ? -1 : 1;
+        
+        // Default to alphabetical by name
       return a.name.localeCompare(b.name);
     });
+    
+    return matches;
   }, [debouncedInputText, allCountries]);
+
+  // Add timezone data cache
+  const timezoneCache = new Map<string, TimezoneInfo>();
 
   // Calculate current times and timezone info for filtered results
   useEffect(() => {
     if (!isDropdownOpen || filteredResults.length === 0) {
-      setTimezoneData({});
       return;
     }
 
-    let isSubscribed = true; // Add cleanup flag
-
-    const updateTimezoneData = () => {
-      if (!isSubscribed) return; // Check if still subscribed
+    let isSubscribed = true;
       const newData: Record<string, TimezoneInfo> = {};
+    const now = new Date();
 
+    // Process all countries in a single batch
       filteredResults.forEach((country) => {
         const tz = country.timezones?.[0];
+      if (!tz) {
+        newData[country.isoCode] = {
+          abbreviation: "N/A",
+          zoneName: "N/A",
+          currentTime: "N/A",
+          gmtOffset: 0,
+          tzName: "N/A",
+        };
+        return;
+      }
 
-        if (tz) {
+      // Check cache first
+      const cacheKey = `${country.isoCode}_${tz.zoneName}_${now.getMinutes()}`;
+      const cachedData = timezoneCache.get(cacheKey);
+      
+      if (cachedData) {
+        newData[country.isoCode] = cachedData;
+        return;
+      }
+
           try {
             const timeString = new Date().toLocaleTimeString("en-US", {
               timeZone: tz.zoneName,
@@ -361,13 +411,17 @@ export default function CountrySearchInput() {
               hour12: true,
             });
 
-            newData[country.isoCode] = {
+        const tzInfo = {
               abbreviation: tz.abbreviation || "N/A",
               zoneName: tz.zoneName || "N/A",
               currentTime: timeString,
               gmtOffset: tz.gmtOffset || 0,
               tzName: tz.tzName || "N/A",
             };
+
+        // Cache the result
+        timezoneCache.set(cacheKey, tzInfo);
+        newData[country.isoCode] = tzInfo;
           } catch {
             newData[country.isoCode] = {
               abbreviation: tz.abbreviation || "N/A",
@@ -375,24 +429,55 @@ export default function CountrySearchInput() {
               currentTime: "N/A",
               gmtOffset: tz.gmtOffset || 0,
               tzName: tz.tzName || "N/A",
-            };
-          }
-        } else {
-          newData[country.isoCode] = {
-            abbreviation: "N/A",
-            zoneName: "N/A",
-            currentTime: "N/A",
-            gmtOffset: 0,
-            tzName: "N/A",
           };
         }
       });
 
+    if (isSubscribed) {
       setTimezoneData(newData);
+    }
+
+    // Clean up old cache entries every minute
+    const cleanup = () => {
+      const currentMinute = new Date().getMinutes();
+      for (const [key] of timezoneCache) {
+        const [, , cachedMinute] = key.split('_');
+        if (cachedMinute && parseInt(cachedMinute) !== currentMinute) {
+          timezoneCache.delete(key);
+        }
+      }
     };
 
-    updateTimezoneData();
-    const interval = setInterval(updateTimezoneData, 60000);
+    const interval = setInterval(() => {
+      if (isSubscribed) {
+        cleanup();
+        // Update times
+        const updatedData: Record<string, TimezoneInfo> = {};
+        Object.entries(newData).forEach(([isoCode, oldInfo]) => {
+          const country = filteredResults.find(c => c.isoCode === isoCode);
+          const tz = country?.timezones?.[0];
+          
+          if (tz?.zoneName) {
+            try {
+              updatedData[isoCode] = {
+                ...oldInfo,
+                currentTime: new Date().toLocaleTimeString("en-US", {
+                  timeZone: tz.zoneName,
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  hour12: true,
+                })
+              };
+            } catch {
+              updatedData[isoCode] = oldInfo;
+            }
+          } else {
+            updatedData[isoCode] = oldInfo;
+          }
+        });
+        setTimezoneData(updatedData);
+      }
+    }, 60000);
 
     return () => {
       isSubscribed = false;
@@ -405,7 +490,8 @@ export default function CountrySearchInput() {
     setIsDropdownOpen(true);
   };
 
-  const handleItemClick = (country: ICountry, e: React.MouseEvent) => {
+  // Memoize URL handling functions
+  const handleItemClick = useCallback((country: ICountry, e: React.MouseEvent) => {
     // Prevent the dropdown from closing immediately and stop event bubbling
     e.preventDefault();
     e.stopPropagation();
@@ -422,74 +508,41 @@ export default function CountrySearchInput() {
       }
       
       // Validate timezone data
-      if (!country.timezones || !country.timezones.length) {
+      if (!country.timezones?.length) {
         console.warn('Country has no timezone data:', country.name);
         toast.error(`${country.name} has no timezone data`);
         return;
       }
       
-      // Validate that the timezone has necessary data
+      // Get timezone and prepare URL parts
       const timezone = country.timezones[0];
-      if (!timezone.abbreviation) {
-        console.warn('Invalid timezone data for country:', country.name);
-        
-        // Create a fallback abbreviation if needed
-        const fallbackAbbreviation = country.isoCode + "T";
-        
-        // Build a fallback URL with the country code
-        const fallbackCode = `${fallbackAbbreviation}_${country.name}`;
-        let basePath;
-        if (slug.includes("-to-")) {
-          basePath = `${slug}-${encodeURIComponent(fallbackCode)}`;
-        } else if (slug) {
-          basePath = `${slug}-to-${encodeURIComponent(fallbackCode)}`;
-        } else {
-          basePath = encodeURIComponent(fallbackCode);
-        }
-        
-        // Close dropdown
-        setIsDropdownOpen(false);
-        setInputText("");
-        
-        // Navigate with the fallback
-        setTimeout(() => {
-          navigateWithParams(`/converter/${basePath}`);
-        }, 50);
-        
-        return;
-      }
+      const abbreviation = timezone.abbreviation || country.isoCode + "T";
+      const countryCode = `${abbreviation}_${country.name}`;
       
-      // Create the country code with URL encoding for the country name
-      const countryCode = `${timezone.abbreviation}_${country.name}`;
+      // Build the path efficiently
+      const basePath = encodeURIComponent(
+        slug
+          ? slug.includes("-to-")
+            ? `${slug}-${countryCode}`
+            : `${slug}-to-${countryCode}`
+          : countryCode
+      );
       
-      // Build the path with proper URL encoding
-      let basePath;
-      if (slug.includes("-to-")) {
-        basePath = `${slug}-${encodeURIComponent(countryCode)}`;
-      } else if (slug) {
-        basePath = `${slug}-to-${encodeURIComponent(countryCode)}`;
-      } else {
-        basePath = encodeURIComponent(countryCode);
-      }
-      
-      // Log the navigation path for debugging
-      console.log('Navigating to:', `/converter/${basePath}`);
-      
-      // Close dropdown immediately to prevent further interactions
+      // Close dropdown immediately
       setIsDropdownOpen(false);
       setInputText("");
       
-      // Navigate with a small delay to ensure state is updated
-      setTimeout(() => {
+      // Navigate with minimal delay
+      requestAnimationFrame(() => {
         navigateWithParams(`/converter/${basePath}`);
-      }, 50);
+      });
     } catch (error) {
       console.error('Error in handleItemClick:', error);
       toast.error('Error selecting time zone');
       setIsDropdownOpen(false);
-      setInputText("");
+    setInputText("");
     }
-  };
+  }, [timeZones.length, slug, navigateWithParams, showWarningWithTimeout]);
 
   // Reference to maintain the dropdown
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -498,7 +551,7 @@ export default function CountrySearchInput() {
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsDropdownOpen(false);
+    setIsDropdownOpen(false);
       }
     }
     
@@ -517,7 +570,7 @@ export default function CountrySearchInput() {
         onFocus={() => setIsDropdownOpen(true)}
         placeholder={maxLimitReached ? "Maximum limit reached (10)" : "Search by Country"}
         className={`w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-          maxLimitReached ? "border-amber-500 bg-amber-50" : "border-gray-300"
+          maxLimitReached ? "border-destructive bg-destructive/5" : "border-input"
         }`}
         disabled={maxLimitReached}
       />
@@ -554,8 +607,20 @@ export default function CountrySearchInput() {
       )}
 
       {isDropdownOpen && !maxLimitReached && (
-        <ul className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
-          {filteredResults.length > 0 ? (
+        <ul className="absolute z-10 w-full mt-1 bg-card text-card-foreground border rounded-md shadow-lg max-h-60 overflow-auto">
+          {filteredResults.length === 0 ? (
+            !debouncedInputText.trim() ? (
+              <li className="p-4 text-muted-foreground text-center">
+                <div className="font-medium">Start typing to search</div>
+                <div className="text-sm mt-1">Search by country name, code, or timezone</div>
+              </li>
+            ) : (
+              <li className="p-4 text-muted-foreground text-center">
+                <div className="font-medium">No countries found</div>
+                <div className="text-sm mt-1">Try a different search term</div>
+              </li>
+            )
+          ) : (
             filteredResults.map((country) => {
               const timezoneInfo = timezoneData[country.isoCode] || {
                 abbreviation: "Loading...",
@@ -569,14 +634,14 @@ export default function CountrySearchInput() {
                 <li
                   key={country.isoCode}
                   onMouseDown={(e) => handleItemClick(country, e)}
-                  className="p-2 cursor-pointer hover:bg-blue-50 active:bg-blue-100 transition-colors duration-150 flex justify-between items-center text-black relative group"
+                  className="p-2 cursor-pointer hover:bg-muted/50 active:bg-muted transition-colors duration-150 flex justify-between items-center relative group"
                 >
-                  <div className="absolute inset-0 bg-blue-500 opacity-0 group-active:opacity-10 transition-opacity pointer-events-none"></div>
+                  <div className="absolute inset-0 bg-primary opacity-0 group-active:opacity-5 transition-opacity pointer-events-none"></div>
                   <div className="flex-1 relative z-10">
                     <div className="font-medium flex items-center gap-2">
                       {country.flag} {country.name}
                     </div>
-                    <div className="text-sm text-gray-600 mt-1">
+                    <div className="text-sm text-muted-foreground mt-1">
                       <div className="mt-1 flex flex-col">
                         <div>
                           {timezoneInfo.abbreviation} | {timezoneInfo.tzName}
@@ -585,22 +650,12 @@ export default function CountrySearchInput() {
                       </div>
                     </div>
                   </div>
-                  <div className="text-sm font-medium bg-gray-100 px-2 py-1 rounded whitespace-nowrap">
+                  <div className="text-sm font-medium bg-muted/50 px-2 py-1 rounded whitespace-nowrap">
                     {timezoneInfo.currentTime}
                   </div>
                 </li>
               );
             })
-          ) : inputText ? (
-            <li className="p-4 text-gray-600 text-center">
-              <div className="font-medium">No countries found</div>
-              <div className="text-sm mt-1">Try a different search term</div>
-            </li>
-          ) : (
-            <li className="p-4 text-gray-600 text-center">
-              <div className="font-medium">Start typing to search</div>
-              <div className="text-sm mt-1">Search by country name, code, or timezone</div>
-            </li>
           )}
         </ul>
       )}
