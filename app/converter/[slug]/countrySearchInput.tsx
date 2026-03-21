@@ -22,7 +22,7 @@ type CountryWithSearchIndex = ICountry[] & {
 };
 
 export default function CountrySearchInput() {
-  const { slug, is24Hour, viewMode, timeZones, setTimeZones } = useAppStore();
+  const { slug, is24Hour, viewMode, timeZones, setTimeZones, MAX_TIMEZONES : maxTimezones} = useAppStore();
   const [inputText, setInputText] = useState("");
   const debouncedInputText = useDebounce(inputText, 300);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -35,7 +35,7 @@ export default function CountrySearchInput() {
   const searchParams = useSearchParams();
   
   // Maximum number of timezones allowed
-  const MAX_TIMEZONES = 10;
+  const MAX_TIMEZONES = maxTimezones;
 
   // Add a timer ref to manage the warning timeout
   const warningTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -383,8 +383,7 @@ export default function CountrySearchInput() {
     return matches;
   }, [debouncedInputText, allCountries]);
 
-  // Add timezone data cache
-  const timezoneCache = new Map<string, TimezoneInfo>();
+  const timezoneCacheRef = useRef(new Map<string, TimezoneInfo>());
 
   // Calculate current times and timezone info for filtered results
   useEffect(() => {
@@ -412,7 +411,7 @@ export default function CountrySearchInput() {
 
       // Check cache first
       const cacheKey = `${country.isoCode}_${tz.zoneName}_${now.getMinutes()}`;
-      const cachedData = timezoneCache.get(cacheKey);
+      const cachedData = timezoneCacheRef.current.get(cacheKey);
       
       if (cachedData) {
         newData[country.isoCode] = cachedData;
@@ -436,7 +435,7 @@ export default function CountrySearchInput() {
             };
 
         // Cache the result
-        timezoneCache.set(cacheKey, tzInfo);
+        timezoneCacheRef.current.set(cacheKey, tzInfo);
         newData[country.isoCode] = tzInfo;
           } catch {
             newData[country.isoCode] = {
@@ -456,10 +455,10 @@ export default function CountrySearchInput() {
     // Clean up old cache entries every minute
     const cleanup = () => {
       const currentMinute = new Date().getMinutes();
-      for (const [key] of timezoneCache) {
+      for (const [key] of timezoneCacheRef.current) {
         const [, , cachedMinute] = key.split('_');
         if (cachedMinute && parseInt(cachedMinute) !== currentMinute) {
-          timezoneCache.delete(key);
+          timezoneCacheRef.current.delete(key);
         }
       }
     };

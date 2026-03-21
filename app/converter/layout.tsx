@@ -29,6 +29,7 @@ function App({ children }: { children: React.ReactNode }) {
     setViewMode,
     viewMode,
     timeZones,
+    MAX_TIMEZONES : maxTimezones,
   } = useAppStore();
   // const [viewMode, setViewMode] = useState<"list" | "grid">("list");
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
@@ -56,11 +57,16 @@ function App({ children }: { children: React.ReactNode }) {
     };
   }, [showDatePicker]);
 
-  // Helper function to update URL params
+  // Ref to decouple searchParams from callback deps
+  const searchParamsRef = useRef(searchParams);
+  useEffect(() => {
+    searchParamsRef.current = searchParams;
+  }, [searchParams]);
+
+  // Reads searchParams from ref to avoid cascading re-renders
   const updateQueryParams = useCallback((params: Record<string, string>) => {
-    const urlSearchParams = new URLSearchParams(searchParams.toString());
+    const urlSearchParams = new URLSearchParams(searchParamsRef.current.toString());
     
-    // Update params
     Object.entries(params).forEach(([key, value]) => {
       if (value === null || value === undefined) {
         urlSearchParams.delete(key);
@@ -69,25 +75,27 @@ function App({ children }: { children: React.ReactNode }) {
       }
     });
     
-    // Create the new URL
     const newUrl = pathname + (urlSearchParams.toString() ? `?${urlSearchParams.toString()}` : '');
-    
-    // Update URL without refresh
     router.replace(newUrl, { scroll: false });
-  }, [pathname, router, searchParams]);
+  }, [pathname, router]);
 
-  // Load initial settings from URL
+  // Load initial settings from URL -- only on first mount to break the cascade
+  const settingsInitRef = useRef(false);
   useEffect(() => {
-    const Is24HourSearchParams = searchParams.get("is24Hour");
-    if (Is24HourSearchParams && Is24HourSearchParams === "true") {
+    if (settingsInitRef.current) return;
+    settingsInitRef.current = true;
+
+    const is24HourParam = searchParams.get("is24Hour");
+    if (is24HourParam === "true") {
       setIs24Hour(true);
     }
     
-    const viewModeSearchParams = searchParams.get("viewMode");
-    if (viewModeSearchParams && viewModeSearchParams === "grid") {
+    const viewModeParam = searchParams.get("viewMode");
+    if (viewModeParam === "grid") {
       setViewMode("grid");
     }
-  }, [searchParams, setIs24Hour, setViewMode]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   
   // Toggle 24 hour format
   const toggle24HourFormat = useCallback(() => {
@@ -188,13 +196,13 @@ function App({ children }: { children: React.ReactNode }) {
                 {/* Timezone counter */}
                 <div className="absolute right-3 top-1/2 transform -translate-y-1/2 flex items-center">
                   <span className={`text-xs px-2 py-0.5 rounded-full ${
-                    timeZones.length >= 10 
+                    timeZones.length >= maxTimezones 
                       ? "bg-destructive/10 text-destructive" 
                       : timeZones.length >= 7
                       ? "bg-warning/10 text-warning"
                       : "bg-muted text-muted-foreground"
                   }`}>
-                    {timeZones.length}/10
+                    {timeZones.length}/{maxTimezones}
                   </span>
                 </div>
               </div>

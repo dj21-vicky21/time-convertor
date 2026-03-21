@@ -38,6 +38,7 @@ export interface MainPageProps {
 }
 
 export interface AppStore {
+  MAX_TIMEZONES: number;
   currentDate: Date;
   setCurrentDate: (date: Date) => void;
   is24Hour: boolean;

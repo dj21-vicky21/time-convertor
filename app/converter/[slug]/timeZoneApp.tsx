@@ -26,6 +26,7 @@ function TimeZoneApp({ slug }: { slug: string }) {
     viewMode,
   } = useAppStore();
   const [isClient, setIsClient] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -43,8 +44,11 @@ function TimeZoneApp({ slug }: { slug: string }) {
   // Track if initial data has been loaded
   const initialLoadDoneRef = useRef(false);
   
+  // Ref to decouple searchParams from callback dependencies
+  const searchParamsRef = useRef(searchParams);
+  
   // Maximum number of timezones allowed
-  const MAX_TIMEZONES = 10;
+  const MAX_TIMEZONES = 7;
   
   // Create a ref for the drag and drop operation
   const dragDropRef = useRef<{
@@ -57,24 +61,22 @@ function TimeZoneApp({ slug }: { slug: string }) {
     timeZonesRef.current = timeZones;
   }, [timeZones]);
 
-  // Helper function to preserve query parameters - memoized to prevent recreating
+  // Keep searchParamsRef in sync without triggering callback re-creation
+  useEffect(() => {
+    searchParamsRef.current = searchParams;
+  }, [searchParams]);
+
+  // Reads searchParams from ref to avoid dependency churn
   const pushWithQueryParams = useCallback((path: string) => {
-    // Skip if we're already at this path to prevent unnecessary navigation
     if (path.split('?')[0] === pathname) return;
     
-    // Get current query params
-    const params = new URLSearchParams(searchParams.toString());
-    
-    // Make sure we have the latest values
+    const params = new URLSearchParams(searchParamsRef.current.toString());
     params.set('is24Hour', is24Hour.toString());
     params.set('viewMode', viewMode);
     
-    // Create the new URL with query parameters
     const newUrl = params.toString() ? `${path}?${params.toString()}` : path;
-    
-    // Navigate
     router.push(newUrl, {scroll: false});
-  }, [router, searchParams, is24Hour, viewMode, pathname]);
+  }, [router, is24Hour, viewMode, pathname]);
 
   useEffect(() => {
     setIsClient(true);
@@ -287,112 +289,98 @@ function TimeZoneApp({ slug }: { slug: string }) {
     debouncedUpdateURL(updatedTimeZones);
   }, [setTimeZones, debouncedUpdateURL]);
 
-  // Optimized timezone removal
+  // Uses refs inside setTimeout to avoid stale closures
   const removeTimeZone = useCallback((uuid: string) => {
-    // Skip if already removing
     if (removingCardsRef.current.has(uuid)) return;
     
-    // Mark as being removed
     removingCardsRef.current.add(uuid);
-    
-    // Update internal reference immediately
     timeZonesRef.current = timeZonesRef.current.filter(tz => tz.uuid !== uuid);
     
-    // Find and mark the card
     const cardToRemove = document.querySelector(`[data-uuid="${uuid}"]`);
     if (cardToRemove) cardToRemove.classList.add('removing');
     
-    // Batch state update and URL update with appropriate timing
     setTimeout(() => {
-      // Create filtered array once
-      const filtered = timeZones.filter(tz => tz.uuid !== uuid);
-      
-      // Update state
+      const filtered = timeZonesRef.current.filter(tz => tz.uuid !== uuid);
       setTimeZones(filtered);
       
-      // Update URL after state update
       if (isClient) {
+        const params = new URLSearchParams(searchParamsRef.current.toString());
+        params.set('is24Hour', is24Hour.toString());
+        params.set('viewMode', viewMode);
+
         if (filtered.length === 0) {
-          // Update URL without navigation for empty state
-          const params = new URLSearchParams(searchParams.toString());
-          params.set('is24Hour', is24Hour.toString());
-          params.set('viewMode', viewMode);
-          const newUrl = `/converter${params.toString() ? `?${params.toString()}` : ''}`;
-          router.replace(newUrl, { scroll: false });
+          router.replace(`/converter${params.toString() ? `?${params.toString()}` : ''}`, { scroll: false });
         } else {
-          // Create new slug from remaining timezones
-          const timezoneIds = filtered.map(tz => tz.id);
-          const formattedSlug = generateSlugStructure(timezoneIds);
-          
-          // Update URL without navigation
-          const params = new URLSearchParams(searchParams.toString());
-          params.set('is24Hour', is24Hour.toString());
-          params.set('viewMode', viewMode);
-          const newUrl = `/converter/${formattedSlug}${params.toString() ? `?${params.toString()}` : ''}`;
-          router.replace(newUrl, { scroll: false });
+          const formattedSlug = generateSlugStructure(filtered.map(tz => tz.id));
+          router.replace(`/converter/${formattedSlug}${params.toString() ? `?${params.toString()}` : ''}`, { scroll: false });
         }
       }
       
-      // Cleanup tracking
       removingCardsRef.current.delete(uuid);
     }, 100);
-  }, [setTimeZones, timeZones, isClient, router, searchParams, is24Hour, viewMode, generateSlugStructure]);
+  }, [setTimeZones, isClient, router, is24Hour, viewMode, generateSlugStructure]);
 
-  // Initial data loading - optimized to prevent unnecessary loads
+  // Initial data loading with cancellation guard to prevent race conditions
   useEffect(() => {
-    if (!slug || initialLoadDoneRef.current) return;
+    if (!slug || initialLoadDoneRef.current) {
+      setIsLoading(false);
+      return;
+    }
+
+    // Set guard immediately so Strict Mode re-runs skip the fetch
+    initialLoadDoneRef.current = true;
+
+    let cancelled = false;
+    setIsLoading(true);
 
     const fetchData = async () => {
       try {
         setSlug(slug);
         const splitSlug = getValuesFromSlug(slug);
         
-        // Skip if no valid slug parts
-        if (!splitSlug.length) return;
+        if (!splitSlug.length) {
+          if (!cancelled) setIsLoading(false);
+          return;
+        }
         
-        // Limit to maximum 10 timezones
         const limitedSlug = splitSlug.slice(0, MAX_TIMEZONES);
         
-        // Notify if we limited the timezones
         if (limitedSlug.length < splitSlug.length) {
           toast.warning("Maximum of 10 time zones allowed", {
             description: "Only the first 10 time zones have been added."
           });
         }
         
-        // Fetch timezone data
         const validTimeZones = await getURLTimeZones(limitedSlug);
         
-        // Update state if we have valid data
+        if (cancelled) return;
+
         if (validTimeZones?.length) {
           setTimeZones(validTimeZones);
-          // Set initial load done BEFORE updating URL
-          initialLoadDoneRef.current = true;
-          
-          // Ensure URL is properly synced with the loaded data
-          requestAnimationFrame(() => {
-            if (isClient) {
-              debouncedUpdateURL(validTimeZones);
-            }
-          });
+          debouncedUpdateURL(validTimeZones);
         }
       } catch (error) {
         console.error("Error loading timezones:", error);
+        initialLoadDoneRef.current = false;
+      } finally {
+        if (!cancelled) setIsLoading(false);
       }
     };
 
     fetchData();
-  }, [slug, setSlug, getValuesFromSlug, setTimeZones, isClient, debouncedUpdateURL]);
 
-  // Only redirect to home when necessary (empty timezones and not loading)
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug]);
+
+  // Only redirect when data is loaded and there are genuinely no timezones
   useEffect(() => {
-    if (!isClient) return;
+    if (!isClient || isLoading) return;
     
-    // Only redirect if we have no timezones and slug is empty
     if (timeZones.length === 0 && slug === "" && initialLoadDoneRef.current) {
       pushWithQueryParams("/converter");
     }
-  }, [timeZones.length === 0, isClient, slug, pushWithQueryParams]);
+  }, [timeZones.length, isClient, isLoading, slug, pushWithQueryParams]);
 
   // Memoize TimeCard components to prevent unnecessary renders
   const memoizedTimeCards = useMemo(() => {

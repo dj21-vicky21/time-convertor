@@ -12,4 +12,5 @@ export const useAppStore = create<AppStore>((set) => ({
   setTimeZones: (timeZones) => set({ timeZones }),
   viewMode: "list", // Default value
   setViewMode: (viewMode) => set({ viewMode }),
+  MAX_TIMEZONES: 7, // Default value
 }));
