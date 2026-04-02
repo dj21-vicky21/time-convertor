@@ -145,6 +145,11 @@ export const getTimezones = async (inputs: string[]): Promise<TimeZone[]> => {
         // Join country parts back together in case the country name had underscores
         const country = countryParts.join("_");
         
+        // Derive display name from the slug (e.g., "Chennai" from IST_Chennai, "India" from IST_India)
+        const displayName = countryParts.length > 0 
+          ? countryParts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(' ')
+          : abbrev.toUpperCase();
+        
         // First try an exact match
         const searchKey = `${abbrev.toUpperCase()}_${country}`;
         let exactMatch = timezoneMap.get(searchKey);
@@ -165,35 +170,34 @@ export const getTimezones = async (inputs: string[]): Promise<TimeZone[]> => {
         const commonMatch = commonTimeZones[commonTimezoneKey];
         
         if (exactMatch) {
-          // Found in our database
           results.push({
             ...exactMatch,
-            id: decodedInput, // Store the decoded input for ID
+            id: decodedInput,
+            name: displayName,
+            fullName: exactMatch.fullName 
+              ? `${abbrev.toUpperCase()} - ${exactMatch.fullName}`
+              : abbrev.toUpperCase(),
             uuid: randomUUID()
           });
         } else if (commonMatch) {
-          // Found in our common timezones
           results.push({
             ...commonMatch,
+            name: displayName,
+            fullName: commonMatch.fullName 
+              ? `${abbrev.toUpperCase()} - ${commonMatch.fullName}`
+              : abbrev.toUpperCase(),
             uuid: randomUUID()
           });
         } else {
-          // No match found, create a fallback
           console.warn(`No match found for timezone: ${decodedInput}, using fallback`);
-          
-          const countryName = countryParts.length > 0 
-            ? countryParts.join(' ') 
-            : "Unknown";
           
           results.push({
             uuid: randomUUID(),
             id: decodedInput,
-            name: abbrev ? abbrev.toUpperCase() : "TZ",
-            fullName: countryName !== "Unknown" 
-              ? `${abbrev.toUpperCase()} (${countryName})` 
-              : abbrev.toUpperCase(),
-            offset: "+00:00", // Default to GMT
-            country: countryName
+            name: displayName,
+            fullName: `${abbrev.toUpperCase()} - ${displayName}`,
+            offset: "+00:00",
+            country: displayName
           });
         }
       } catch (error) {

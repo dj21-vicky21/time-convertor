@@ -14,7 +14,7 @@ import "react-datepicker/dist/react-datepicker.css";
 import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { useAppStore } from "@/store/appStore";
-import CountrySearchInput from "./[slug]/countrySearchInput";
+import TimezoneSearchInput from "./[slug]/timezoneSearchInput";
 import { toast } from "sonner";
 import { useSearchParams, usePathname, useRouter } from "next/navigation";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -188,7 +188,7 @@ function App({ children }: { children: React.ReactNode }) {
             {/* Search Bar */}
             <div className="flex-grow max-w-md">
               <div className="relative">
-                <CountrySearchInput />
+                <TimezoneSearchInput />
                 <Plus
                   className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground"
                   size={20}
