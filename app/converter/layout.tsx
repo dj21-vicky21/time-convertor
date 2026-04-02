@@ -143,10 +143,10 @@ function App({ children }: { children: React.ReactNode }) {
   // };
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <div className="max-w-7xl mx-auto p-6">
+    <div className="h-screen overflow-hidden bg-background text-foreground flex flex-col">
+      <div className="max-w-7xl w-full mx-auto p-6 flex flex-col flex-1 min-h-0">
         {/* Header */}
-        <div className="mb-6">
+        <div className="mb-6 shrink-0">
           <h1 className="text-4xl font-bold mb-2">
             Time Zone Converter
           </h1>
@@ -183,7 +183,7 @@ function App({ children }: { children: React.ReactNode }) {
         </div>
 
         {/* Controls */}
-        <div className="bg-card text-card-foreground rounded-xl shadow-sm p-4 mb-6 border">
+        <div className="bg-card text-card-foreground rounded-xl shadow-sm p-4 mb-6 border shrink-0">
           <div className="flex flex-wrap items-center justify-between gap-4">
             {/* Search Bar */}
             <div className="flex-grow max-w-md">
@@ -278,15 +278,17 @@ function App({ children }: { children: React.ReactNode }) {
           </div>
         </div>
 
-        {/* Time Zones */}
-        <div
-          className={`transition-all duration-300 ease-in-out ${
-            timeZones.length && viewMode === "grid"
-              ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
-              : "md:w-3xl space-y-4 m-auto"
-          }`}
-        >
-          {children}
+        {/* Time Zones -- only this area scrolls */}
+        <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+          <div
+            className={`transition-all duration-300 ease-in-out pb-6 ${
+              timeZones.length && viewMode === "grid"
+                ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+                : "md:w-3xl space-y-4 m-auto"
+            }`}
+          >
+            {children}
+          </div>
         </div>
       </div>
     </div>
