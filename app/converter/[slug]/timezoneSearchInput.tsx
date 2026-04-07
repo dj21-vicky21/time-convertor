@@ -255,7 +255,36 @@ export default function TimezoneSearchInput() {
         ] as ICountry[];
       }
       
-      return countries;
+      // Append standalone timezone entries so abbreviations like UTC, Zulu, CDT, etc.
+      // are always directly searchable even without a country match
+      const standardTimezones: ICountry[] = [
+        { name: "Coordinated Universal Time", isoCode: "UTC", flag: "🌐", phonecode: "", currency: "", latitude: "0", longitude: "0",
+          timezones: [{ zoneName: "Etc/UTC", gmtOffset: 0, abbreviation: "UTC", tzName: "Coordinated Universal Time" }] },
+        { name: "Zulu Time", isoCode: "ZULU", flag: "🌐", phonecode: "", currency: "", latitude: "0", longitude: "0",
+          timezones: [{ zoneName: "Etc/UTC", gmtOffset: 0, abbreviation: "Z", tzName: "Zulu Time (UTC+00:00)" }] },
+        { name: "Eastern Daylight Time", isoCode: "EDT", flag: "🌐", phonecode: "", currency: "", latitude: "40.7128", longitude: "-74.006",
+          timezones: [{ zoneName: "America/New_York", gmtOffset: -14400, abbreviation: "EDT", tzName: "Eastern Daylight Time" }] },
+        { name: "Central Daylight Time", isoCode: "CDT", flag: "🌐", phonecode: "", currency: "", latitude: "41.8781", longitude: "-87.6298",
+          timezones: [{ zoneName: "America/Chicago", gmtOffset: -18000, abbreviation: "CDT", tzName: "Central Daylight Time" }] },
+        { name: "Mountain Daylight Time", isoCode: "MDT", flag: "🌐", phonecode: "", currency: "", latitude: "39.7392", longitude: "-104.9903",
+          timezones: [{ zoneName: "America/Denver", gmtOffset: -21600, abbreviation: "MDT", tzName: "Mountain Daylight Time" }] },
+        { name: "Pacific Daylight Time", isoCode: "PDT", flag: "🌐", phonecode: "", currency: "", latitude: "34.0522", longitude: "-118.2437",
+          timezones: [{ zoneName: "America/Los_Angeles", gmtOffset: -25200, abbreviation: "PDT", tzName: "Pacific Daylight Time" }] },
+        { name: "Atlantic Daylight Time", isoCode: "ADT", flag: "🌐", phonecode: "", currency: "", latitude: "44.6488", longitude: "-63.5752",
+          timezones: [{ zoneName: "America/Halifax", gmtOffset: -10800, abbreviation: "ADT", tzName: "Atlantic Daylight Time" }] },
+        { name: "Newfoundland Daylight Time", isoCode: "NDT", flag: "🌐", phonecode: "", currency: "", latitude: "47.5615", longitude: "-52.7126",
+          timezones: [{ zoneName: "America/St_Johns", gmtOffset: -9000, abbreviation: "NDT", tzName: "Newfoundland Daylight Time" }] },
+        { name: "Central European Summer Time", isoCode: "CEST", flag: "🌐", phonecode: "", currency: "", latitude: "48.8566", longitude: "2.3522",
+          timezones: [{ zoneName: "Europe/Paris", gmtOffset: 7200, abbreviation: "CEST", tzName: "Central European Summer Time" }] },
+        { name: "Eastern European Summer Time", isoCode: "EEST", flag: "🌐", phonecode: "", currency: "", latitude: "37.9838", longitude: "23.7275",
+          timezones: [{ zoneName: "Europe/Athens", gmtOffset: 10800, abbreviation: "EEST", tzName: "Eastern European Summer Time" }] },
+        { name: "New Zealand Standard Time", isoCode: "NZST", flag: "🌐", phonecode: "", currency: "", latitude: "-36.8485", longitude: "174.7633",
+          timezones: [{ zoneName: "Pacific/Auckland", gmtOffset: 43200, abbreviation: "NZST", tzName: "New Zealand Standard Time" }] },
+        { name: "International Date Line West", isoCode: "IDLW", flag: "🌐", phonecode: "", currency: "", latitude: "0", longitude: "-180",
+          timezones: [{ zoneName: "Etc/GMT+12", gmtOffset: -43200, abbreviation: "IDLW", tzName: "International Date Line West" }] },
+      ] as ICountry[];
+
+      return [...countries, ...standardTimezones];
     } catch (error) {
       console.error('Error loading countries:', error);
       // Return a basic fallback list if Country.getAllCountries fails
